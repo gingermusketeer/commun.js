@@ -1,0 +1,36 @@
+{
+  "name": "commun.js",
+  "version": "0.1.0",
+  "description": "Browser based commonjs compliant module loader",
+  "main": "serve.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/gingermusketeer/commun.js.git"
+  },
+  "author": {
+    "name": "Max Brosnahan",
+    "email": "maximilianbrosnahan@gmail.com"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/gingermusketeer/commun.js.git"
+  },
+  "bugs": {
+    "url": "https://github.com/gingermusketeer/commun.js/issues"
+  },
+  "licenses": [
+    {
+      "type": "MIT",
+      "url": "https://github.com/gingermusketeer/commun.js/blob/master/LICENSE-MIT"
+    }
+  ],
+  "devDependencies": {
+    "node-static": "0.6.5",
+    "grunt": "~0.4.1",
+    "grunt-contrib-jshint": "~0.1.1"
+  },
+  "keywords": []
+}
