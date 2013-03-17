@@ -4,30 +4,38 @@
     "use strict";
     //--------------------------------'SANDBOX'----------------------------------
 
-    function execWith(context, code, sourceUrl) {
+    function execWith(context, code, sourceUrl, exports) {
         /*
-        magic code which uses with to create a sandbox and an anonymous
-        function to hide the sandbox otherwise it could be referenced through
-        'this'. The only variable from here that breaks through the sandbox is
-        _ß_toEval and it has been named such that it should not collide with the
-        script. However it does not really matter if it is overridden.
-      */
-        var evalCode = "with(this){return (function(){var exports = {}; eval(_ß_toEval); return exports; }.call({})) }";
+            Magic code which uses with to create a sandbox and an anonymous
+            function to hide the sandbox otherwise it could be referenced through
+            'this'. The only variable from here that breaks through the sandbox is
+            _ß_arg and it has been named such that it should not collide with the
+            script. However it does not really matter if it is overridden. Require
+            is also defined here so that the current path can be captured. This is
+            used for resolving relative file paths etc.
+        */
+        var evalCode = "with(this){ var require = function (moduleName){ return _ß_arg.require(moduleName, _ß_arg.requireOrigin, require.cache) }; return (function(){ eval(_ß_arg.source); return exports; }.call({})) }";
 
         // eval via function so that the current scope is not included.
-        var func = new Function("_ß_toEval", evalCode);
+        var func = new Function("_ß_arg", "exports", evalCode);
 
+
+        var arg = {
+            source: code + '//@ sourceURL=' + sourceUrl,
+            require: require,
+            requireOrigin: sourceUrl
+        };
         // Do the actual eval
-        return func.call(context, code + '//@ sourceURL=' + sourceUrl);
+        func.call(context, arg, exports);
     }
 
     //--------------------------------AJAX---------------------------------------
 
     function createXHR()
     /*{
-    description: "creates cross browser compliant AJAX object.",
-    returns: "An ajax object."
-  }*/
+        "description": "creates cross browser compliant AJAX object.",
+        "returns": "An ajax object."
+    }*/
     {
         var xhr;
         if (window.ActiveXObject) {
@@ -46,27 +54,27 @@
 
     function getRawCode(filePath, onSuccess, onFail)
     /*{
-    description: "Get the source file as a string from the server",
-    params: [
-      {
-        description: "The path to the file to be retrieved.",
-        exampleVal: "main.js"
-      },
-      {
-        description: "If the file is successfully retrieved (status 200) then this callback will be called",
-        exampleVal: "function(){}"
-      },
-      {
-        description: "If the file cannot be retrieved this function will be called",
-        exampleVal: "function(){}"
-      }
-    ]
-  }*/
+        "description": "Get the source file as a string from the server",
+        "params": [
+          {
+            description: "The path to the file to be retrieved.",
+            exampleVal: "main.js"
+          },
+          {
+            description: "If the file is successfully retrieved (status 200) then this callback will be called",
+            exampleVal: "function(){}"
+          },
+          {
+            description: "If the file cannot be retrieved this function will be called",
+            exampleVal: "function(){}"
+          }
+        ]
+      }*/
     {
         var xhr = createXHR();
         xhr.onreadystatechange = function () {
             if (xhr.readyState === 4) {
-                if (xhr.status !== 200) {
+                if (xhr.status !== 200 && xhr.status !== 0) {
                     onFail(xhr);
                 } else {
                     onSuccess(xhr.responseText);
@@ -78,8 +86,6 @@
         xhr.setRequestHeader('Content-type', 'application/x-www-form-urlencoded');
         xhr.send();
     }
-
-
 
     //--------------------------------MODULE LOADER---------------------------------
 
@@ -95,26 +101,115 @@
         console: console
     };
 
-    var require = function (moduleName)
+    function isPathRelative(path)
     /*{
-    description: "Common js require function. This function relies on modules being pre-fetched and available when needed.",
-    params: "The name of the module that to be returned.",
-    returns: "The module that was requested."
-
-  }*/
+        "description": "Tests if the path passed in is relative (contains ./ or ../)"
+    }*/
     {
+        return path.indexOf('./') !== -1 || path.indexOf('../') !== -1;
+    }
+
+    function resolve(path, basePath)
+    /*{
+        "description": "Determines the absolute path from the relative path and its base"
+    }*/
+    {
+        basePath = basePath || "";
+        if (isPathRelative(path)) {
+            path = path.replace(/(?:^\.\/)|\/\.\//g, "/");
+            var separator = path.indexOf("../") === 0 ? "/" : "";
+            var fullPath = basePath + separator + path;
+            var pieces = fullPath.split("/");
+            var index = pieces.lastIndexOf("..");
+
+            while (index > 0) {
+                if (pieces[index - 1] === '..') {
+                    index = index - 1;
+                } else {
+                    pieces.splice(index - 1, 2); //remove the two element
+                    index = pieces.lastIndexOf("..");
+                }
+            }
+            return pieces.join('/');
+        } else {
+            //it is absolute already so just return it
+            return path;
+        }
+    }
+
+    function getBasePath(requireOrigin)
+    /*{
+        "description": "Strips the module name from the end of a path."
+    }*/
+    {
+        if (requireOrigin) {
+            var basePath = requireOrigin.replace(/\/(?!\S*\/)[\S]*$/, "");
+            if (basePath === ".") {
+                basePath = "";
+            }
+            return basePath;
+        } else {
+            return "";
+        }
+
+    }
+
+    var require = function require(moduleName, requireOrigin, cache)
+    /*{
+        "description": "Common js require function. This function relies on modules being pre-fetched (not necessarily executed) and available when needed. Throws an error when the module cannot be found.",
+        "params": [
+            {
+                "description": "The name of the module that to be returned."
+            },
+            {
+                "description": "The basePath for the module to be required. This is used to resolve the module name to it's absolute form."
+            },
+            {
+                "description": "The module cache to use for user modules.",
+                "required": false
+            }
+        "returns": "The module that was requested."
+    }*/
+    {
+        if (cache) {
+            moduleCache = cache;
+        }
+
         if (sysModuleCache.hasOwnProperty(moduleName)) {
             return sysModuleCache[moduleName];
         } else {
+            var resolvedName = resolve(moduleName, getBasePath(requireOrigin));
+            resolvedName = resolvedName.replace(/\.js$/, "");
             // try and find it in the list of prefetched modules retrieved from the server
-            return moduleCache[moduleName].exports;
+            if (moduleCache[resolvedName]) {
+                var module = moduleCache[resolvedName];
+                //we tried to load it
+                if (module.exports) {
+                    // we have already executed it
+                    return module.exports;
+                } else if (module.rawText || module.rawText === "") {
+                    //we have the code just need to execute it
+                    module.exports = {}; //predefine the exports so that cyclic and reflexive imports are possible
+                    execWith(context, module.rawText, resolvedName, module.exports);
+
+                    // delete rawText ???
+
+                    return module.exports;
+                } else {
+                    //we don't have the code so the module failed to be prefetched or someone has touched the cache
+                    throw  new Error("module: " + resolvedName + " prefetch failed");
+                }
+            } else {
+                // Either module could not be found on the server or someone has touched the cache.
+                throw new Error("module:" + resolvedName + " could not be found.");
+            }
         }
     };
 
     function alreadyLoaded(moduleName)
     /*{
-    "description": "Checks if a module has already been loaded."
-  }*/
+        "description": "Checks if a module has already been loaded."
+    }*/
     {
         return sysModuleCache.hasOwnProperty(moduleName) || moduleCache.hasOwnProperty(moduleName);
     }
@@ -177,19 +272,15 @@
         /* hide common js libraries */
         $: undefined,
         jQuery: undefined,
-        _: undefined,
-
-        /* add commonjs module loader API */
-        require: require,
-        environment: "do something with this common js? global"
+        _: undefined
     };
 
+    //----------------------------CODE PREFETCH--------------------------------
 
-
-    function prefetchDeps(rawCode, onComplete)
+    function prefetchDeps(rawCode, basePath, onComplete)
     /*{
-    "description": "Given some source code all the dependencies are required so that they are available during execution."
-  }*/
+        "description": "Given some source code all the dependencies are prefetched but not executed so that they are available to require calls."
+    }*/
     {
         var rawRequires = rawCode.match(/require\((?:\'|\")[\S]*(?:\'|\")\)/gm); //find require calls returns ["require('something')"] does not take into account comments
         if (rawRequires) {
@@ -199,75 +290,72 @@
             });
 
             // iterate through all the deps and load them
-
-            var execDeps = function execDeps(deps, index) {
+            var loadDeps = function loadDeps(deps, index) {
                 if (index < deps.length) {
-                    if (alreadyLoaded(deps[index])) {
-                        execDeps(deps, index + 1);
+                    var dep = deps[index];
+                    if (alreadyLoaded(dep)) {
+                        loadDeps(deps, index + 1);
                     } else {
+                        var depBasePath = basePath;
+                        if (isPathRelative(dep)) {
+                            depBasePath = resolve("./" + getBasePath(dep), basePath);
+                        }
+
                         // Load the dependency and when finished load the next one. // this could be done in parallel ??
-                        execScript(deps[index] + '.js', function (exports) {
-                            moduleCache[deps[index]] = {
-                                exports: exports
+                        loadScript(resolve(dep, basePath) + '.js', depBasePath, function onLoaded(rawText, moduleName) {
+                            moduleCache[moduleName] = {
+                                rawText: rawText
                             };
 
                             // load next dep
-                            execDeps(deps, index + 1);
+                            loadDeps(deps, index + 1);
                         });
                     }
                 } else {
                     //all deps are loaded so bail
                     onComplete();
                 }
-
             };
 
             // Start loading deps
-            execDeps(depModules, 0);
+            loadDeps(depModules, 0);
         } else {
             onComplete();
         }
     }
 
-    function execScript(fileName, onComplete)
-    /*{
-    "description": "Executes a remote script. Before execution all the dependencies are loaded.",
-    "params": [
-      {
-        "description": "name of the remote script to execute",
-        "exampleVal": "main.js"
-      },
-      {
-        "description": "function to call when the script has been loaded.",
-        "exampleVal": "function(exports){}",
-        params: "the exports from the module that was loaded."
-      }
-    ]
-  }*/
-    {
+    function loadScript(fileName, basePath, onComplete) {
+        console.log("loading script " + fileName);
         getRawCode(fileName, function (rawCode) {
-            prefetchDeps(rawCode, function () {
-                var exports = execWith(context, rawCode, fileName);
-                onComplete(exports);
+            prefetchDeps(rawCode, getBasePath(fileName), function () {
+                onComplete(rawCode, fileName.replace(/\.js$/, ""));
             });
-        },
 
-        function () {
+        },
+        function (xhr) {
             console.log("could not load: " + fileName);
             onComplete();
         });
     }
 
+    //----------------------------KICKSTART------------------------------------
 
-    // find the script tag that references the initial module (normally main.js) and load it
+    // find the script tag that references the initial module (normally main.js) and load + exec it
     var scripts = document.getElementsByTagName('script');
     for (var i = scripts.length - 1; i >= 0; i--) {
         var script = scripts[i];
-        var dataMain = script.getAttribute('data-main');
-        if (dataMain) {
+        var mainScriptName = script.getAttribute('data-main');
+        if (mainScriptName) {
+
             /*jshint loopfunc: true*/
-            execScript(dataMain, function (exports) {
-                console.log("data-main loaded");
+            loadScript(mainScriptName, "", function (rawCode) {
+                if (rawCode) {
+                    execWith(context, rawCode, mainScriptName, {});
+                    console.log("data-main script: " + mainScriptName + " loaded and executed");
+                } else {
+                    console.log("data-main script: " + mainScriptName + " could not be loaded");
+                }
+
             });
         }
     }
