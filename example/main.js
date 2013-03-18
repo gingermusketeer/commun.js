@@ -15,6 +15,6 @@ console.log("main is here");
 
 var subModule = require('./subModule');
 
-p = document.createElement('p');
-p.innerHTML = "subModule\'s exports are:<pre>" + JSON.stringify(subModule) + "</pre>";
-document.body.appendChild(p);
+var div = document.createElement('div');
+div.innerHTML = "subModule\'s exports are:<pre>" + JSON.stringify(subModule) + "</pre>";
+document.body.appendChild(div);

@@ -2,6 +2,31 @@
 /*global window, history, console, alert, XMLHttpRequest, navigator, ActiveXObject, document*/
 (function () {
     "use strict";
+
+    //--------------------------------IE LAMENESS------------------------------
+
+    if (!Array.prototype.map) {
+        Array.prototype.map = function (func) {
+            var newArray = [];
+            for (var i = this.length - 1; i >= 0; i--) {
+                newArray[i] = func(this[i], i, this);
+            }
+            return newArray;
+        };
+    }
+
+    if (!Array.prototype.lastIndexOf) {
+        Array.prototype.lastIndexOf = function (needle) {
+            for (var i = this.length - 1; i >= 0; i--) {
+                if (this[i] === needle) {
+                    return i;
+                }
+            }
+            return -1;
+        };
+    }
+
+
     //--------------------------------'SANDBOX'----------------------------------
 
     function execWith(context, code, sourceUrl, exports) {

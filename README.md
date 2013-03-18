@@ -9,6 +9,8 @@ A browser based commonjs module 1.0 compliant module loader.
     - firefox -> Yes
     - safari  -> Yes
     - opera   -> Yes
+    - IE 9    -> Yes
+    - IE 8    -> Yes
 - sandboxing modules from browser environment
     - ```var document = require('document');```
 - simple syntax
