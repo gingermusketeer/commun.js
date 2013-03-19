@@ -417,7 +417,22 @@
         var configScriptName = scriptNode.getAttribute('data-config');
 
         if (configScriptName) {
+            // Expose communjs configuration module
+            sysModuleCache["__communjsLib__"] = {
+                defaultFileExtensionHandler: undefined,
+                fileExtension: function (extension) {
+                    return {};
+                },
+                setSandboxConfig: function (modulesToMatch, config) {
+
+                },
+                logger: undefined
+            };
+
             loadAndExec(configScriptName, function onComplete() {
+                // Remove communjs configuration module from require-able modules
+                delete sysModuleCache["__communjsLib__"];
+
                 loadAndExec(mainScriptName);
             });
         } else {
