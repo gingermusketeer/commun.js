@@ -396,26 +396,56 @@
         });
     }
 
-    //----------------------------KICKSTART------------------------------------
 
-    // find the script tag that references the initial module (normally main.js) and load + exec it
-    var scripts = document.getElementsByTagName('script');
-    for (var i = scripts.length - 1; i >= 0; i--) {
-        var script = scripts[i];
-        var mainScriptName = script.getAttribute('data-main');
-        if (mainScriptName) {
+    //----------------------------STARTUP--------------------------------------
 
-            /*jshint loopfunc: true*/
-            loadScript(mainScriptName, "", function (rawCode) {
-                if (rawCode) {
-                    execWith(context, rawCode, mainScriptName, {});
-                    console.log("data-main script: " + mainScriptName + " loaded and executed");
-                } else {
-                    console.log("data-main script: " + mainScriptName + " could not be loaded");
-                }
+    function loadAndExec(scriptName, onComplete) {
+        var basePath = "";
+        loadScript(scriptName, basePath, function (rawCode) {
+            if (rawCode) {
+                execWith(context, rawCode, scriptName, {});
+            }
 
+            if (onComplete) {
+                onComplete();
+            }
+        });
+    }
+
+    function start(scriptNode) {
+        var mainScriptName = scriptNode.getAttribute('data-main');
+        var configScriptName = scriptNode.getAttribute('data-config');
+
+        if (configScriptName) {
+            loadAndExec(configScriptName, function onComplete() {
+                loadAndExec(mainScriptName);
             });
+        } else {
+            loadAndExec(mainScriptName);
         }
     }
+
+    function getCommunjsScriptNode() {
+        // get all the scripts and try to find the one that is communjs
+        var scripts = document.getElementsByTagName('script');
+        var communjsScript = null;
+
+        for (var i = scripts.length - 1; i >= 0 && !communjsScript; i--) {
+            if (scripts[i].getAttribute("data-main")) {
+                communjsScript = scripts[i];
+            }
+        }
+
+        // make sure we found it
+        if (!communjsScript) {
+            throw new Error("[communjs] data-main attribute must be set on the script tag that includes communjs.");
+        } else {
+            return communjsScript;
+        }
+    }
+
+    //----------------------------KICKSTART------------------------------------
+
+    start(getCommunjsScriptNode());
 
 }());
