@@ -45,6 +45,10 @@ checkout the source code in the example directory
 ## Contributing
 In lieu of a formal style-guide, take care to maintain the existing coding style. Add Jasmine tests for any new or changed functionality. Lint and test your code using [grunt](https://github.com/gruntjs/grunt).
 
+## Acknowledgements
+
+[acorn.js](https://github.com/marijnh/acorn) powers the parser used to detect syntax errors when a script fails to load.
+
 ## License
 Copyright (c) 2013 Max Brosnahan
 Licensed under the MIT license.
