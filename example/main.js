@@ -1,4 +1,3 @@
-/*jshint evil:true */
 /*global document:true, require: false*/
 'use strict';
 var document = require('document');
