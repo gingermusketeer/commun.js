@@ -25,17 +25,6 @@ describe("communjs", function baseSuite() {
         expect(a).toEqual({ a: 1 });
     });
 
-    it("exports modules with extensions not matching '.js' as text", function () {
-        require.cache = {
-            "a.text": {
-                rawText: "some text"
-            }
-        };
-
-        var a_text = require('a.text');
-        expect(a_text).toBe("some text");
-    });
-
     describe("configuration", function () {
 
 
