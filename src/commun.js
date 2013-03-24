@@ -141,15 +141,20 @@
         defaultFileHandler: undefined,
         modules: function (modulePattern) {
 
-            if (!!(modulePattern && modulePattern.test && modulePattern.exec && (modulePattern.ignoreCase || modulePattern.ignoreCase === false))) {
+            if (!(modulePattern && modulePattern.test && modulePattern.exec && (modulePattern.ignoreCase || modulePattern.ignoreCase === false))) {
                 // it is a ReExp so we need to extract the source
-                modulePattern = modulePattern.source;
+                modulePattern = new RegExp(modulePattern);
             }
+
+
 
             // if the config does not exist create one
             if (!moduleConfigs[modulePattern]) {
-                moduleConfigs[modulePattern] = {};
+                // assign the RegExp so we don't need to reconstruct it
+                moduleConfigs[modulePattern] = { modulePattern: modulePattern };
             }
+
+
 
             // return the config object for the modulePattern
             return moduleConfigs[modulePattern];
@@ -195,10 +200,10 @@
             var moduleConfig = null;
 
             // find custom config
-            for (var modulePattern in moduleConfigs) {
-                if (moduleConfigs.hasOwnProperty(modulePattern)) {
-                    if (new RegExp(modulePattern).test(moduleName)) {
-                        moduleConfig = moduleConfigs[modulePattern];
+            for (var key in moduleConfigs) {
+                if (moduleConfigs.hasOwnProperty(key)) {
+                    if (moduleConfigs[key].modulePattern.test(moduleName)) {
+                        moduleConfig = moduleConfigs[key];
                         break;
                     }
                 }
