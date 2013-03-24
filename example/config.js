@@ -1,55 +1,40 @@
-//example configuration file
+/*{
+    "description": "Example configuration file."
+}*/
+
 /*global require*/
 
-// This is only available in config file not normal files
-var communjs = require('__communjsLib__'),
-    console = require('console'),
-    EXPORT = true,
-    NO_EXPORT = false;
+'use strict';
 
+//--------------------------------DEPENDENCIES-------------------------------------
+
+var communjs = require('_communjs/config');
+
+//--------------------------------CONFIGURATION--------------------------------
 
 // change the default handler for modules without a handler specified
 // and those with no extension from javascript to something else e.g. coffeescript
-communjs.defaultFileExtensionHandler = function(rawText, moduleName) {
-    //...
+
+// communjs.defaultModuleHandler = function (rawText, moduleName) {
+//     //...
+// };
+
+// dont just return json files. Parse them first
+communjs.modules(/.json$/).handler = function (rawText, moduleName) {
+    return JSON.parse(rawText);
 };
 
-// dont execute json files but parse them instead
-communjs.fileExtension('json').handler = function(rawText){
-    return JSON.parse(rawText);
-}
 
 
-// translate coffeescript files and then execute them. Return the exports.
-communjs.fileExtension('coffee').handler = function(rawText, javascriptEvaluator){
-    var javascript = coffeescript.translate(rawtext);
-
-    return javascriptEvaluator(javascript);
-}
-
-//when loading any module with jQuery in the name
+// when loading any module with someLib in the name
 // configure the execution context so that the objects normally
 // exposed in the global space can be captured and returned privately
-communjs.setSandboxConfig(/jQuery/, {
-    globalExports: {
-        $: NO_EXPORT,
-        jQuery: EXPORT
+// also global dependencies can be added.
+communjs.modules(/someLib/).sandbox = {
+    globals: {
+        expectedGlobal: 5
     },
-    allowGlobals: [
-        "window", "history"
+    exports: [
+        "somefeature"
     ]
-});
-
-// explicit match to the absolute module identifier for jasmine
-// when more then one global is exported they will be available via module.[global]
-communjs.setSandboxConfig('vendor/jasmine', {
-    globalExports: {
-        jasmine: EXPORT,
-        describe: EXPORT,
-        it: EXPORT,
-        expect: EXPORT
-    }
-});
-
-communjs.logger = console.log;
-
+};
