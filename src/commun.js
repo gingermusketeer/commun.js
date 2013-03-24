@@ -29,7 +29,7 @@
 
     //--------------------------------'SANDBOX'----------------------------------
 
-    function execWith(context, code, sourceUrl, exports) {
+    function execWith(context, code, sourceUrl, module) {
         /*
             Magic code which uses with to create a sandbox and an anonymous
             function to hide the sandbox otherwise it could be referenced through
@@ -51,14 +51,9 @@
             requireOrigin: sourceUrl
         };
 
-        // Need to implement module.exports properly
-        var module = {
-            exports: exports
-        };
-
         try {
             // Do the actual eval
-            func.call(context, arg, exports, module);
+            func.call(context, arg, module.exports, module);
         } catch (e) {
             e.sourceFile = sourceUrl;
             if (e.constructor === SyntaxError) {
@@ -234,7 +229,7 @@
             if (moduleConfig && moduleConfig.handler) {
                 module.exports = moduleConfig.handler(module.rawText, moduleName);
             } else {
-                execWith(moduleContext, module.rawText, moduleName, module.exports);
+                execWith(moduleContext, module.rawText, moduleName, module);
             }
 
             // extract global exports from sandbox

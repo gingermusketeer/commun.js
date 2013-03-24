@@ -22,7 +22,7 @@ describe("communjs", function baseSuite() {
 
         var a = require("a");
 
-        expect(a).toBe({ a: 1 });
+        expect(a).toEqual({ a: 1 });
     });
 
     it("exports modules with extensions not matching '.js' as text", function () {
