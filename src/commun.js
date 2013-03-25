@@ -419,7 +419,7 @@
             }
         } else {
             // Either module could not be found on the server or someone has touched the cache.
-            throw new Error("module:" + moduleName + " could not be found.");
+            throw new Error("[communjs] Module: " + moduleName + " could not be found.");
         }
     };
 
