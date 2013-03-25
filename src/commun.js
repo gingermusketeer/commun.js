@@ -159,7 +159,8 @@
             // return the config object for the modulePattern
             return moduleConfigs[modulePattern];
         },
-        logger: undefined
+        logger: undefined,
+        includeNodeModulesInSearch: false
     };
 
     var moduleConfigs = {
@@ -326,9 +327,16 @@
         } else {
             var resolvedName = resolve(moduleName, getBasePath(requireOrigin));
             resolvedName = resolvedName.replace(/\.js$/, "");
+
             // try and find it in the list of prefetched modules retrieved from the server
-            if (moduleCache[resolvedName]) {
-                var module = moduleCache[resolvedName];
+            var module = moduleCache[resolvedName];
+            if (!module && communjsConfig.includeNodeModulesInSearch) {
+                console.log("\n\n", moduleName);
+
+                module = moduleCache["node_modules/" + moduleName];
+                console.log(JSON.stringify(module));
+            }
+            if (module) {
                 //we tried to load it
                 if (module.exports) {
                     // we have already executed it
@@ -358,7 +366,7 @@
         "description": "Checks if a module has already been loaded."
     }*/
     {
-        return sysModuleCache.hasOwnProperty(moduleName) || moduleCache.hasOwnProperty(moduleName);
+        return sysModuleCache.hasOwnProperty(moduleName) || moduleCache.hasOwnProperty(moduleName) || moduleCache.hasOwnProperty("node_modules/" + moduleName);
     }
 
     // module globals
@@ -480,8 +488,28 @@
 
         },
         function (xhr) {
-            console.log("could not load: " + fileName);
-            onComplete();
+            if (communjsConfig.includeNodeModulesInSearch) {
+                fileName = fileName.replace(/\.js$/, "");
+                getRawCode("node_modules/" + fileName + "/package.json", function onSuccess(rawText) {
+                    var pkgJson = JSON.parse(rawText);
+
+                    // get the main file path
+                    var mainScript = pkgJson.main;
+                    var path = "node_modules/" + fileName + "/" + mainScript;
+                    getRawCode(path, function onSuccess(rawText) {
+                        prefetchDeps(rawText, getBasePath(path), function () {
+                            onComplete(rawText, "node_modules/" + fileName);
+                        });
+
+                    }, function onFail() {
+                        console.log("could not get node module at path: " + path);
+                    });
+                }, function onFailure() {
+                    console.log("could not load: " + fileName);
+                    onComplete();
+                });
+            }
+
         });
     }
 

@@ -38,3 +38,5 @@ communjs.modules(/someLib/).sandbox = {
         "somefeature"
     ]
 };
+
+communjs.includeNodeModulesInSearch = true;

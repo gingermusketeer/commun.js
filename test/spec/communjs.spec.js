@@ -133,5 +133,19 @@ describe("communjs", function baseSuite() {
 
             expect(globalFunc).toHaveBeenCalled();
         });
+
+        it("allows support for node_modules to be configured", function () {
+            require.cache = {
+                "node_modules/someLib": {
+                    rawText: "exports.name = 'the libs main file';"
+                }
+            };
+
+            communjs.includeNodeModulesInSearch = true;
+
+            var someLib = require('someLib');
+
+            expect(someLib.name).toBe("the libs main file");
+        });
     });
 });
