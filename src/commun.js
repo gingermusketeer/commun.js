@@ -208,11 +208,11 @@
         return (/.[\S]+$/).test(str);
     };
 
-    self.executeModule = function executeModule(moduleName, module) {
+    self.executeModule = function executeModule(moduleName, module, rawText) {
         // if there is a custom default module handler and the file does not
         // have an extension use it to load the module
         if (communjsConfig.defaultModuleHandler && !self.hasFileExtension(moduleName)) {
-            module.exports = communjsConfig.defaultModuleHandler(module.rawText, moduleName);
+            module.exports = communjsConfig.defaultModuleHandler(rawText, moduleName);
         } else {
             // assume we don't have custom config for this module
             var moduleConfig = null, moduleConfigs = self.moduleConfigs;
@@ -251,9 +251,9 @@
 
             // Execute it
             if (moduleConfig && moduleConfig.handler) {
-                module.exports = moduleConfig.handler(module.rawText, moduleName);
+                module.exports = moduleConfig.handler(rawText, moduleName);
             } else {
-                self.execWith(moduleContext, module.rawText, moduleName, module);
+                self.execWith(moduleContext, rawText, moduleName, module);
             }
 
             // extract global exports from sandbox
@@ -274,32 +274,36 @@
         return path.indexOf('./') !== -1 || path.indexOf('../') !== -1;
     };
 
+    self.isPathAbsolute = function isPathAbsolute(path)
+
+    {
+        return path.length >= 0 && path[0] === "/";
+    };
+
     self.resolve = function resolve(path, basePath)
     /*{
         "description": "Determines the absolute path from the relative path and its base"
     }*/
     {
         basePath = basePath || "";
-        if (self.isPathRelative(path)) {
-            path = path.replace(/(?:^\.\/)|\/\.\//g, "/");
-            var separator = path.indexOf("../") === 0 ? "/" : "";
-            var fullPath = basePath + separator + path;
-            var pieces = fullPath.split("/");
-            var index = pieces.lastIndexOf("..");
+        path = path.replace(/(?:^\.\/)|\/\.\//g, "/");
+        var separator = path.indexOf("../") === 0 ? "/" : "";
+        var fullPath = basePath + separator + path;
+        var pieces = fullPath.split("/");
+        var index = pieces.lastIndexOf("..");
 
-            while (index > 0) {
-                if (pieces[index - 1] === '..') {
-                    index = index - 1;
-                } else {
-                    pieces.splice(index - 1, 2); //remove the two element
-                    index = pieces.lastIndexOf("..");
-                }
+        while (index > 0) {
+            if (pieces[index - 1] === '..') {
+                index = index - 1;
+            } else {
+                pieces.splice(index - 1, 2); //remove the two element
+                index = pieces.lastIndexOf("..");
             }
-            return pieces.join('/');
-        } else {
-            //it is absolute already so just return it
-            return path;
         }
+        var result = pieces.join('/');
+
+        return result.replace("./", "");
+
     };
 
     self.getBasePath = function getBasePath(requireOrigin)
@@ -318,6 +322,24 @@
         }
 
     };
+
+    self.nodeModulePaths = function nodeModulePaths(start) {
+        var parts = start.split('/');
+        var root = parts.indexOf("node_modules");
+        if(root === -1) {
+            root = 0;
+        }
+        var dirs = [];
+        for (var i = parts.length; i > root; i--) {
+            var part = parts[i];
+            if (part === "node_modules") {
+                continue;
+            }
+            dirs.push(parts.slice(0, i).join("/") + "/node_modules/");
+        }
+
+        return dirs;
+    }
 
     self.require = function require(moduleName, requireOrigin, cache)
     /*{
@@ -344,19 +366,33 @@
 
         // did not find it in core modules
         if (!module) {
-            var resolvedName = self.resolve(moduleName, self.getBasePath(requireOrigin));
-            resolvedName = resolvedName.replace(/\.js$/, "");
 
-            // try and find it in the list of prefetched modules retrieved from the server
-            module = self.moduleCache[resolvedName];
-            if (!module && communjsConfig.includeNodeModulesInSearch) {
-                console.log("\n\n", moduleName);
+            if (self.isPathRelative(moduleName)) {
 
-                module = self.moduleCache["node_modules/" + moduleName];
-                console.log(JSON.stringify(module));
+                // convert it into an absolute path
+                var resolvedName = self.resolve(moduleName, self.getBasePath(requireOrigin));
+
+                // handle an odd case. This needs to be refactored out
+                if(resolvedName[0] !== '/') {
+                    resolvedName = "/" + resolvedName;
+                }
+                moduleName = resolvedName.replace(/\.js$/, "");
             }
 
-            moduleName = resolvedName;
+            if (self.isPathAbsolute(moduleName)) {
+                module = self.userModuleCache[moduleName];
+            } else if (communjsConfig.includeNodeModulesInSearch) {
+
+                // Get all the possible dirs where nod_modules could be located
+                var dirs = self.nodeModulePaths(self.getBasePath(requireOrigin));
+
+                // try each one
+                for (var i = 0; i < dirs.length && !module; i++) {
+                    var dir = dirs[i];
+                    var nodeModulePath = dir + moduleName;
+                    module = self.userModuleCache[dir + moduleName];
+                }
+            }
         }
 
         if (module) {
@@ -364,11 +400,15 @@
             if (module.exports) {
                 // we have already executed it
                 return module.exports;
-            } else if (module.rawText || module.rawText === "") {
+            } else if ((module.rawText || module.rawText === "") || (module.mainScript && module.mainScript.rawText)) {
                 //we have the code just need to execute it
                 module.exports = {}; //predefine the exports so that cyclic and reflexive imports are possible
-                self.executeModule(moduleName, module);
-                //
+                var rawText = module.rawText;
+                if(module.mainScript) {
+                    rawText = module.mainScript.rawText;
+                    moduleName = module.mainScript.name;
+                }
+                self.executeModule(moduleName, module, rawText);
 
                 // delete rawText ???
 
@@ -480,7 +520,7 @@
 
                         // Load the dependency and when finished load the next one. // this could be done in parallel ??
                         self.loadScript(self.resolve(dep, basePath) + '.js', depBasePath, function onLoaded(rawText, moduleName) {
-                            self.moduleCache[moduleName] = {
+                            self.userModuleCache["/" + moduleName] = {
                                 rawText: rawText
                             };
 

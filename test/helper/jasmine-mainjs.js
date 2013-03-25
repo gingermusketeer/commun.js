@@ -1,5 +1,5 @@
 <% scripts.specs.forEach(function(script){ %>
-require('<%= script %>');
+require('../../<%= script %>');
 <% }); %>
 
 var window = require('window');
