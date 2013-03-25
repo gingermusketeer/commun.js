@@ -169,10 +169,10 @@
 
     };
     // This is where the user modules will be cached
-    self.moduleCache = {};
+    self.userModuleCache = {};
 
     // This is where the modules provided by the browser are stored.
-    self.sysModuleCache = {
+    self.coreModuleCache = {
 
         // browser modules
         window: {
@@ -337,12 +337,12 @@
     }*/
     {
         if (cache) {
-            self.moduleCache = cache;
+            self.userModuleCache = cache;
         }
         // assume it is in the sys cache
-        var module = self.sysModuleCache[moduleName];
+        var module = self.coreModuleCache[moduleName];
 
-        // if not find it else where
+        // did not find it in core modules
         if (!module) {
             var resolvedName = self.resolve(moduleName, self.getBasePath(requireOrigin));
             resolvedName = resolvedName.replace(/\.js$/, "");
@@ -388,7 +388,7 @@
         "description": "Checks if a module has already been loaded."
     }*/
     {
-        return self.sysModuleCache.hasOwnProperty(moduleName) || self.moduleCache.hasOwnProperty(moduleName) || self.moduleCache.hasOwnProperty("node_modules/" + moduleName);
+        return self.coreModuleCache.hasOwnProperty(moduleName) || self.userModuleCache.hasOwnProperty(moduleName) || self.userModuleCache.hasOwnProperty("node_modules/" + moduleName);
     };
 
     // module globals
