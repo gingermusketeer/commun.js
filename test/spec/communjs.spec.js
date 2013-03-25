@@ -148,4 +148,12 @@ describe("communjs", function baseSuite() {
             expect(someLib.name).toBe("the libs main file");
         });
     });
+
+    describe('_communjs/internal', function () {
+        it('is require-able', function () {
+            var communjsInternals = require('_communjs/internal');
+
+            expect(communjsInternals).toBeTruthy();
+        });
+    });
 });
