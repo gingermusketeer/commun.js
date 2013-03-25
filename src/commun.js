@@ -3,6 +3,8 @@
 (function () {
     "use strict";
 
+    var self = {};
+
     //--------------------------------IE LAMENESS------------------------------
 
     if (!Array.prototype.map) {
@@ -29,7 +31,7 @@
 
     //--------------------------------'SANDBOX'----------------------------------
 
-    function execWith(context, code, sourceUrl, module) {
+    self.execWith = function execWith(context, code, sourceUrl, module) {
         /*
             Magic code which uses with to create a sandbox and an anonymous
             function to hide the sandbox otherwise it could be referenced through
@@ -47,7 +49,7 @@
 
         var arg = {
             source: code + '//@ sourceURL=' + sourceUrl,
-            require: require,
+            require: self.require,
             requireOrigin: sourceUrl
         };
 
@@ -61,7 +63,7 @@
                     e.line = e.lineNumber;
                 } else if (!e.line) {
                     // browser is not telling us where the error is so try to find it using a javascript parser
-                    var parser = require('_communjs/parser');
+                    var parser = self.require('_communjs/parser');
                     try {
                         parser.parse(arg.source);
                     } catch (parseException) {
@@ -75,11 +77,11 @@
             // should this 'silently' fail or throw the exception??
             console.log(e);
         }
-    }
+    };
 
     //--------------------------------AJAX---------------------------------------
 
-    function createXHR()
+    self.createXHR = function createXHR()
     /*{
         "description": "creates cross browser compliant AJAX object.",
         "returns": "An ajax object."
@@ -98,9 +100,9 @@
         }
 
         return xhr;
-    }
+    };
 
-    function getRawCode(filePath, onSuccess, onFail)
+    self.getRawCode = function getRawCode(filePath, onSuccess, onFail)
     /*{
         "description": "Get the source file as a string from the server",
         "params": [
@@ -119,7 +121,7 @@
         ]
       }*/
     {
-        var xhr = createXHR();
+        var xhr = self.createXHR();
         xhr.onreadystatechange = function () {
             if (xhr.readyState === 4) {
                 if (xhr.status !== 200 && xhr.status !== 0) {
@@ -133,7 +135,7 @@
         xhr.open('GET', filePath, true);
         xhr.setRequestHeader('Content-type', 'application/x-www-form-urlencoded');
         xhr.send();
-    }
+    };
 
     //--------------------------------MODULE LOADER---------------------------------
 
@@ -149,28 +151,28 @@
 
 
             // if the config does not exist create one
-            if (!moduleConfigs[modulePattern]) {
+            if (!self.moduleConfigs[modulePattern]) {
                 // assign the RegExp so we don't need to reconstruct it
-                moduleConfigs[modulePattern] = { modulePattern: modulePattern };
+                self.moduleConfigs[modulePattern] = { modulePattern: modulePattern };
             }
 
 
 
             // return the config object for the modulePattern
-            return moduleConfigs[modulePattern];
+            return self.moduleConfigs[modulePattern];
         },
         logger: undefined,
         includeNodeModulesInSearch: false
     };
 
-    var moduleConfigs = {
+    self.moduleConfigs = {
 
     };
     // This is where the user modules will be cached
-    var moduleCache = {};
+    self.moduleCache = {};
 
     // This is where the modules provided by the browser are stored.
-    var sysModuleCache = {
+    self.sysModuleCache = {
 
         // browser modules
         window: {
@@ -198,24 +200,25 @@
             exports: communjsConfig
         },
         "_communjs/internal": {
-            exports: {}
+            exports: self
         }
     };
 
-    function hasFileExtension(str) {
+    self.hasFileExtension = function hasFileExtension(str) {
         return (/.[\S]+$/).test(str);
-    }
+    };
 
-    function executeModule(moduleName, module) {
+    self.executeModule = function executeModule(moduleName, module) {
         // if there is a custom default module handler and the file does not
         // have an extension use it to load the module
-        if (communjsConfig.defaultModuleHandler && !hasFileExtension(moduleName)) {
+        if (communjsConfig.defaultModuleHandler && !self.hasFileExtension(moduleName)) {
             module.exports = communjsConfig.defaultModuleHandler(module.rawText, moduleName);
         } else {
             // assume we don't have custom config for this module
-            var moduleConfig = null;
+            var moduleConfig = null, moduleConfigs = self.moduleConfigs;
 
             // find custom config
+
             for (var key in moduleConfigs) {
                 if (moduleConfigs.hasOwnProperty(key)) {
                     if (moduleConfigs[key].modulePattern.test(moduleName)) {
@@ -226,7 +229,7 @@
             }
 
             // create a duplicate of the default sandbox context
-            var moduleContext = Object.create(context);
+            var moduleContext = Object.create(self.context);
 
             // modify the sandbox to handle libs with global exports
             if (moduleConfig && moduleConfig.sandbox && moduleConfig.sandbox.exports) {
@@ -250,7 +253,7 @@
             if (moduleConfig && moduleConfig.handler) {
                 module.exports = moduleConfig.handler(module.rawText, moduleName);
             } else {
-                execWith(moduleContext, module.rawText, moduleName, module);
+                self.execWith(moduleContext, module.rawText, moduleName, module);
             }
 
             // extract global exports from sandbox
@@ -261,23 +264,23 @@
                 }
             }
         }
-    }
+    };
 
-    function isPathRelative(path)
+    self.isPathRelative = function isPathRelative(path)
     /*{
         "description": "Tests if the path passed in is relative (contains ./ or ../)"
     }*/
     {
         return path.indexOf('./') !== -1 || path.indexOf('../') !== -1;
-    }
+    };
 
-    function resolve(path, basePath)
+    self.resolve = function resolve(path, basePath)
     /*{
         "description": "Determines the absolute path from the relative path and its base"
     }*/
     {
         basePath = basePath || "";
-        if (isPathRelative(path)) {
+        if (self.isPathRelative(path)) {
             path = path.replace(/(?:^\.\/)|\/\.\//g, "/");
             var separator = path.indexOf("../") === 0 ? "/" : "";
             var fullPath = basePath + separator + path;
@@ -297,9 +300,9 @@
             //it is absolute already so just return it
             return path;
         }
-    }
+    };
 
-    function getBasePath(requireOrigin)
+    self.getBasePath = function getBasePath(requireOrigin)
     /*{
         "description": "Strips the module name from the end of a path."
     }*/
@@ -314,9 +317,9 @@
             return "";
         }
 
-    }
+    };
 
-    var require = function require(moduleName, requireOrigin, cache)
+    self.require = function require(moduleName, requireOrigin, cache)
     /*{
         "description": "Common js require function. This function relies on modules being pre-fetched (not necessarily executed) and available when needed. Throws an error when the module cannot be found.",
         "params": [
@@ -334,22 +337,22 @@
     }*/
     {
         if (cache) {
-            moduleCache = cache;
+            self.moduleCache = cache;
         }
         // assume it is in the sys cache
-        var module = sysModuleCache[moduleName];
+        var module = self.sysModuleCache[moduleName];
 
         // if not find it else where
         if (!module) {
-            var resolvedName = resolve(moduleName, getBasePath(requireOrigin));
+            var resolvedName = self.resolve(moduleName, self.getBasePath(requireOrigin));
             resolvedName = resolvedName.replace(/\.js$/, "");
 
             // try and find it in the list of prefetched modules retrieved from the server
-            module = moduleCache[resolvedName];
+            module = self.moduleCache[resolvedName];
             if (!module && communjsConfig.includeNodeModulesInSearch) {
                 console.log("\n\n", moduleName);
 
-                module = moduleCache["node_modules/" + moduleName];
+                module = self.moduleCache["node_modules/" + moduleName];
                 console.log(JSON.stringify(module));
             }
 
@@ -364,7 +367,7 @@
             } else if (module.rawText || module.rawText === "") {
                 //we have the code just need to execute it
                 module.exports = {}; //predefine the exports so that cyclic and reflexive imports are possible
-                executeModule(moduleName, module);
+                self.executeModule(moduleName, module);
                 //
 
                 // delete rawText ???
@@ -380,16 +383,16 @@
         }
     };
 
-    function alreadyLoaded(moduleName)
+    self.alreadyLoaded = function alreadyLoaded(moduleName)
     /*{
         "description": "Checks if a module has already been loaded."
     }*/
     {
-        return sysModuleCache.hasOwnProperty(moduleName) || moduleCache.hasOwnProperty(moduleName) || moduleCache.hasOwnProperty("node_modules/" + moduleName);
-    }
+        return self.sysModuleCache.hasOwnProperty(moduleName) || self.moduleCache.hasOwnProperty(moduleName) || self.moduleCache.hasOwnProperty("node_modules/" + moduleName);
+    };
 
     // module globals
-    var context = {
+    self.context = {
         /* hide all the common browser APIs */
         top: undefined,
         location: undefined,
@@ -451,7 +454,7 @@
 
     //----------------------------CODE PREFETCH--------------------------------
 
-    function prefetchDeps(rawCode, basePath, onComplete)
+    self.prefetchDeps = function prefetchDeps(rawCode, basePath, onComplete)
     /*{
         "description": "Given some source code all the dependencies are prefetched but not executed so that they are available to require calls."
     }*/
@@ -467,17 +470,17 @@
             var loadDeps = function loadDeps(deps, index) {
                 if (index < deps.length) {
                     var dep = deps[index];
-                    if (alreadyLoaded(dep)) {
+                    if (self.alreadyLoaded(dep)) {
                         loadDeps(deps, index + 1);
                     } else {
                         var depBasePath = basePath;
-                        if (isPathRelative(dep)) {
-                            depBasePath = resolve("./" + getBasePath(dep), basePath);
+                        if (self.isPathRelative(dep)) {
+                            depBasePath = self.resolve("./" + self.getBasePath(dep), basePath);
                         }
 
                         // Load the dependency and when finished load the next one. // this could be done in parallel ??
-                        loadScript(resolve(dep, basePath) + '.js', depBasePath, function onLoaded(rawText, moduleName) {
-                            moduleCache[moduleName] = {
+                        self.loadScript(self.resolve(dep, basePath) + '.js', depBasePath, function onLoaded(rawText, moduleName) {
+                            self.moduleCache[moduleName] = {
                                 rawText: rawText
                             };
 
@@ -496,12 +499,12 @@
         } else {
             onComplete();
         }
-    }
+    };
 
-    function loadScript(fileName, basePath, onComplete) {
+    self.loadScript = function loadScript(fileName, basePath, onComplete) {
         console.log("loading script " + fileName);
-        getRawCode(fileName, function (rawCode) {
-            prefetchDeps(rawCode, getBasePath(fileName), function () {
+        self.getRawCode(fileName, function (rawCode) {
+            self.prefetchDeps(rawCode, self.getBasePath(fileName), function () {
                 onComplete(rawCode, fileName.replace(/\.js$/, ""));
             });
 
@@ -509,14 +512,14 @@
         function (xhr) {
             if (communjsConfig.includeNodeModulesInSearch) {
                 fileName = fileName.replace(/\.js$/, "");
-                getRawCode("node_modules/" + fileName + "/package.json", function onSuccess(rawText) {
+                self.getRawCode("node_modules/" + fileName + "/package.json", function onSuccess(rawText) {
                     var pkgJson = JSON.parse(rawText);
 
                     // get the main file path
                     var mainScript = pkgJson.main;
                     var path = "node_modules/" + fileName + "/" + mainScript;
-                    getRawCode(path, function onSuccess(rawText) {
-                        prefetchDeps(rawText, getBasePath(path), function () {
+                    self.getRawCode(path, function onSuccess(rawText) {
+                        self.prefetchDeps(rawText, self.getBasePath(path), function () {
                             onComplete(rawText, "node_modules/" + fileName);
                         });
 
@@ -530,39 +533,39 @@
             }
 
         });
-    }
+    };
 
 
     //----------------------------STARTUP--------------------------------------
 
-    function loadAndExec(scriptName, onComplete) {
+    self.loadAndExec = function loadAndExec(scriptName, onComplete) {
         var basePath = "";
-        loadScript(scriptName, basePath, function (rawCode) {
+        self.loadScript(scriptName, basePath, function (rawCode) {
             if (rawCode) {
-                execWith(context, rawCode, scriptName, {});
+                self.execWith(self.context, rawCode, scriptName, {});
             }
 
             if (onComplete) {
                 onComplete();
             }
         });
-    }
+    };
 
-    function start(scriptNode) {
+    self.start = function start(scriptNode) {
         var mainScriptName = scriptNode.getAttribute('data-main');
         var configScriptName = scriptNode.getAttribute('data-config');
 
         if (configScriptName) {
 
-            loadAndExec(configScriptName, function onComplete() {
-                loadAndExec(mainScriptName);
+            self.loadAndExec(configScriptName, function onComplete() {
+                self.loadAndExec(mainScriptName);
             });
         } else {
-            loadAndExec(mainScriptName);
+            self.loadAndExec(mainScriptName);
         }
-    }
+    };
 
-    function getCommunjsScriptNode() {
+    self.getCommunjsScriptNode = function getCommunjsScriptNode() {
         // get all the scripts and try to find the one that is communjs
         var scripts = document.getElementsByTagName('script');
         var communjsScript = null;
@@ -579,10 +582,10 @@
         } else {
             return communjsScript;
         }
-    }
+    };
 
     //----------------------------KICKSTART------------------------------------
 
-    start(getCommunjsScriptNode());
+    self.start(self.getCommunjsScriptNode());
 
 }());
