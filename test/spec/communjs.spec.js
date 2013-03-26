@@ -1,7 +1,7 @@
 /*{
    "description": "Specs for communjs."
 }*/
-/*globals require, describe, it, expect, beforeEach, spyOn, jasmine*/
+/*globals require, describe, it, expect, beforeEach, afterEach spyOn, jasmine*/
 
 'use strict';
 
@@ -320,6 +320,179 @@ describe("communjs", function baseSuite() {
 
         it("returns three paths for /a/b", function () {
             expect(nodeModulePaths("/a/b")).toEqual(["/a/b/node_modules/", "/a/node_modules/", "/node_modules/"]);
+        });
+    });
+
+    describe("getDependencies", function () {
+        var getDependencies = internals.getDependencies;
+
+        it("returns null when there are no dependencies", function () {
+            var rawText = "var a = 5; exports.b = a * 5;";
+
+            expect(getDependencies(rawText)).toBe(null);
+        });
+
+        it("returns an array with the module names used in the requires", function () {
+            var rawText = "var a = require('a'), b = require('b');\n\n var c = require('c');";
+
+            expect(getDependencies(rawText)).toEqual(['a', 'b', 'c']);
+        });
+    });
+
+    describe("loadDependency", function () {
+        var loadDependency = internals.loadDependency;
+
+        var originalLoadScript = internals.loadScript;
+
+        beforeEach(function () {
+            internals.userModuleCache = {};
+        });
+
+        afterEach(function () {
+            internals.loadScript = originalLoadScript;
+        });
+
+        it("does not call loadScript for core modules", function () {
+            spyOn(internals, "loadScript");
+            spyOn(internals, "alreadyLoaded").andCallThrough();
+
+            var onComplete = jasmine.createSpy();
+
+            loadDependency('window', "", onComplete);
+
+            expect(internals.loadScript).not.toHaveBeenCalled();
+
+            expect(internals.alreadyLoaded).toHaveBeenCalledWith('window');
+            expect(onComplete).toHaveBeenCalled();
+        });
+
+        it("does not call loadScript for user modules that have been loaded", function () {
+            internals.userModuleCache = {
+                "/a": {}
+            };
+
+            spyOn(internals, "loadScript");
+            spyOn(internals, "alreadyLoaded").andCallThrough();
+
+            var onComplete = jasmine.createSpy();
+
+            loadDependency('/a', "", onComplete);
+
+            expect(internals.loadScript).not.toHaveBeenCalled();
+
+            expect(internals.alreadyLoaded).toHaveBeenCalledWith('/a');
+            expect(onComplete).toHaveBeenCalled();
+
+        });
+
+        var console = require('console');
+
+        it("loads absolute modules", function () {
+            spyOn(internals, 'loadScript').andCallFake(function (moduleName, onDone) {
+                expect(moduleName).toBe('/a');
+                onDone("absolute module text");
+            });
+
+            var onComplete = jasmine.createSpy().andCallFake(function () {
+                expect(internals.userModuleCache["/a"].rawText).toBe("absolute module text");
+            });
+
+            loadDependency('/a', "", onComplete);
+            expect(onComplete).toHaveBeenCalled();
+            expect(internals.loadScript).toHaveBeenCalled();
+            //fails() //should do
+        });
+
+        it("loads relative modules", function () {
+            spyOn(internals, 'loadScript').andCallFake(function (moduleName, onDone) {
+                expect(moduleName).toBe('/someFolder/a');
+                onDone("relative module text");
+            });
+
+            var onComplete = jasmine.createSpy().andCallFake(function () {
+
+                expect(internals.userModuleCache["/someFolder/a"].rawText).toBe("relative module text");
+            });
+
+            loadDependency('./a', "/someFolder", onComplete);
+            expect(onComplete).toHaveBeenCalled();
+            expect(internals.loadScript).toHaveBeenCalled();
+        });
+
+        it("loads folder modules with package.json", function () {
+
+            spyOn(internals, 'loadScript').andCallFake(function (moduleName, onDone, onFail) {
+                if (moduleName === "/someFolder") {
+                    onFail();
+                } else  if (moduleName === "/someFolder/package.json") {
+                    onDone('{ "main": "./lib/main.js" }');
+                } else if (moduleName === "/someFolder/lib/main.js") {
+                    onDone("folder module");
+                } else {
+                    throw new Error("loadScript called with unexpected module name");
+                }
+            });
+
+            var onComplete = jasmine.createSpy("dependencyLoaded").andCallFake(function () {
+                expect(internals.userModuleCache["/someFolder"]).toEqual({
+                    packageJson: '{ "main": "./lib/main.js" }',
+                    mainScript: {
+                        name: "/someFolder/lib/main.js",
+                        rawText: "folder module"
+                    }
+                });
+            });
+
+            loadDependency('/someFolder', "", onComplete);
+
+            expect(onComplete).toHaveBeenCalled();
+            expect(internals.loadScript).toHaveBeenCalled();
+        });
+
+        it('loads folder modules without package.json falling back to using index.js', function () {
+            spyOn(internals, 'loadScript').andCallFake(function (moduleName, onDone, onFail) {
+                if (moduleName === "/someFolder" || moduleName === "/someFolder/package.json") {
+                    onFail();
+                } else if (moduleName === "/someFolder/index.js") {
+                    onDone("index.js for folder module");
+                } else {
+                    throw new Error("loadScript called with unexpected module name: " + moduleName);
+                }
+            });
+
+            var onComplete = jasmine.createSpy("dependencyLoaded").andCallFake(function () {
+
+                expect(internals.userModuleCache["/someFolder"]).toEqual({
+                    mainScript: {
+                        name: "/someFolder/index.js",
+                        rawText: "index.js for folder module"
+                    }
+                });
+            });
+
+            loadDependency('/someFolder', "", onComplete);
+
+            expect(onComplete).toHaveBeenCalled();
+            expect(internals.loadScript).toHaveBeenCalled();
+        });
+
+        it('fails silently when index.js does not exist', function () {
+            spyOn(internals, 'loadScript').andCallFake(function (moduleName, onDone, onFail) {
+                if (moduleName === "/someFolder" || moduleName === "/someFolder/package.json" || moduleName === "/someFolder/index.js") {
+                    onFail();
+                } else {
+                    throw new Error("loadScript called with unexpected module name: " + moduleName);
+                }
+            });
+
+            var onComplete = jasmine.createSpy("dependencyLoading finished").andCallFake(function () {
+                expect(internals.userModuleCache).toEqual({});
+            });
+
+            loadDependency("/someFolder", "", onComplete);
+
+            expect(onComplete).toHaveBeenCalled();
+            expect(internals.loadScript).toHaveBeenCalled();
         });
     });
 });
