@@ -361,10 +361,6 @@
                 // convert it into an absolute path
                 var resolvedName = self.resolve(moduleName, self.getBasePath(requireOrigin));
 
-                // handle an odd case. This needs to be refactored out
-                if (resolvedName[0] !== '/') {
-                    resolvedName = "/" + resolvedName;
-                }
                 moduleName = resolvedName.replace(/\.js$/, "");
             }
 

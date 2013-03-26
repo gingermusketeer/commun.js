@@ -201,7 +201,7 @@ describe("communjs", function baseSuite() {
 
             expect(mod).toBe(relModule);
 
-            mod = internals.require('./someFolder/relModule', "");
+            mod = internals.require('./someFolder/relModule', "/");
 
             expect(mod).toBe(relModule);
         });
@@ -415,7 +415,7 @@ describe("communjs", function baseSuite() {
                 expect(internals.userModuleCache["/someFolder/a"].rawText).toBe("relative module text");
             });
 
-            loadDependency('./a', "/someFolder", onComplete);
+            loadDependency('./a', "/someFolder/", onComplete);
 
             expect(onComplete).toHaveBeenCalled();
             expect(internals.loadScript).toHaveBeenCalled();
