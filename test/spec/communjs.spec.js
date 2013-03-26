@@ -389,7 +389,7 @@ describe("communjs", function baseSuite() {
 
         it("loads absolute modules", function () {
             spyOn(internals, 'loadScript').andCallFake(function (moduleName, onDone) {
-                expect(moduleName).toBe('/a');
+                expect(moduleName).toBe('/a.js');
                 onDone("absolute module text");
             });
 
@@ -398,14 +398,15 @@ describe("communjs", function baseSuite() {
             });
 
             loadDependency('/a', "", onComplete);
+
             expect(onComplete).toHaveBeenCalled();
             expect(internals.loadScript).toHaveBeenCalled();
-            //fails() //should do
+
         });
 
         it("loads relative modules", function () {
             spyOn(internals, 'loadScript').andCallFake(function (moduleName, onDone) {
-                expect(moduleName).toBe('/someFolder/a');
+                expect(moduleName).toBe('/someFolder/a.js');
                 onDone("relative module text");
             });
 
@@ -415,6 +416,7 @@ describe("communjs", function baseSuite() {
             });
 
             loadDependency('./a', "/someFolder", onComplete);
+
             expect(onComplete).toHaveBeenCalled();
             expect(internals.loadScript).toHaveBeenCalled();
         });
@@ -422,14 +424,14 @@ describe("communjs", function baseSuite() {
         it("loads folder modules with package.json", function () {
 
             spyOn(internals, 'loadScript').andCallFake(function (moduleName, onDone, onFail) {
-                if (moduleName === "/someFolder") {
+                if (moduleName === "/someFolder.js") {
                     onFail();
                 } else  if (moduleName === "/someFolder/package.json") {
                     onDone('{ "main": "./lib/main.js" }');
                 } else if (moduleName === "/someFolder/lib/main.js") {
                     onDone("folder module");
                 } else {
-                    throw new Error("loadScript called with unexpected module name");
+                    throw new Error("loadScript called with unexpected module name: " + moduleName);
                 }
             });
 
@@ -443,7 +445,7 @@ describe("communjs", function baseSuite() {
                 });
             });
 
-            loadDependency('/someFolder', "", onComplete);
+            loadDependency('/someFolder', "/", onComplete);
 
             expect(onComplete).toHaveBeenCalled();
             expect(internals.loadScript).toHaveBeenCalled();
@@ -451,7 +453,7 @@ describe("communjs", function baseSuite() {
 
         it('loads folder modules without package.json falling back to using index.js', function () {
             spyOn(internals, 'loadScript').andCallFake(function (moduleName, onDone, onFail) {
-                if (moduleName === "/someFolder" || moduleName === "/someFolder/package.json") {
+                if (moduleName === "/someFolder.js" || moduleName === "/someFolder/package.json") {
                     onFail();
                 } else if (moduleName === "/someFolder/index.js") {
                     onDone("index.js for folder module");
@@ -478,7 +480,7 @@ describe("communjs", function baseSuite() {
 
         it('fails silently when index.js does not exist', function () {
             spyOn(internals, 'loadScript').andCallFake(function (moduleName, onDone, onFail) {
-                if (moduleName === "/someFolder" || moduleName === "/someFolder/package.json" || moduleName === "/someFolder/index.js") {
+                if (moduleName === "/someFolder.js" || moduleName === "/someFolder/package.json" || moduleName === "/someFolder/index.js") {
                     onFail();
                 } else {
                     throw new Error("loadScript called with unexpected module name: " + moduleName);
@@ -493,6 +495,74 @@ describe("communjs", function baseSuite() {
 
             expect(onComplete).toHaveBeenCalled();
             expect(internals.loadScript).toHaveBeenCalled();
+        });
+    });
+
+    describe("resolve", function () {
+        var resolve = internals.resolve;
+
+        it("handles paths relative to the root", function () {
+            var base = "/";
+
+            var relPath = "./a";
+
+            var abs = resolve(relPath, base);
+
+            expect(abs).toBe("/a");
+
+            relPath = "./a/b";
+
+            abs = resolve(relPath, base);
+
+            expect(abs).toBe("/a/b");
+        });
+
+        it("handles paths relative to a sub node of root", function () {
+            var base = "/base/";
+
+            var relPath = "./a";
+
+            var abs = resolve(relPath, base);
+
+            expect(abs).toBe("/base/a");
+
+            relPath = "../a";
+
+            abs = resolve(relPath, base);
+
+            expect(abs).toBe("/a");
+        });
+    });
+
+    describe("getBasePath", function () {
+        var getBasePath = internals.getBasePath;
+
+        it("handles file at root", function () {
+            var file = "/a";
+
+            var basePath = getBasePath(file);
+
+            expect(basePath).toBe("/");
+
+            file = "/a.js";
+
+            basePath = getBasePath(file);
+
+            expect(basePath).toBe("/");
+        });
+
+        it("handles files at lower levels in the tree", function () {
+            var file = "/a/b";
+
+            var basePath = getBasePath(file);
+
+            expect(basePath).toBe("/a/");
+
+            file = "/a/b/c";
+
+            basePath = getBasePath(file);
+
+            expect(basePath).toBe("/a/b/");
         });
     });
 });

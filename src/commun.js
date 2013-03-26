@@ -205,7 +205,7 @@
     };
 
     self.hasFileExtension = function hasFileExtension(str) {
-        return (/.[\S]+$/).test(str);
+        return (/\.[\S]+$/).test(str);
     };
 
     self.executeModule = function executeModule(moduleName, module, rawText) {
@@ -286,9 +286,7 @@
     }*/
     {
         basePath = basePath || "";
-        path = path.replace(/(?:^\.\/)|\/\.\//g, "/");
-        var separator = path.indexOf("../") === 0 ? "/" : "";
-        var fullPath = basePath + separator + path;
+        var fullPath = basePath + path;
         var pieces = fullPath.split("/");
         var index = pieces.lastIndexOf("..");
 
@@ -306,21 +304,12 @@
 
     };
 
-    self.getBasePath = function getBasePath(requireOrigin)
+    self.getBasePath = function getBasePath(path)
     /*{
         "description": "Strips the module name from the end of a path."
     }*/
     {
-        if (requireOrigin) {
-            var basePath = requireOrigin.replace(/\/(?!\S*\/)[\S]*$/, "");
-            if (basePath === ".") {
-                basePath = "";
-            }
-            return basePath;
-        } else {
-            return "";
-        }
-
+        return path.replace(/(?!\S*\/)[\S]*$/, "");
     };
 
     self.nodeModulePaths = function nodeModulePaths(start) {
@@ -513,7 +502,14 @@
             if (self.isPathRelative(moduleName)) {
                 moduleName = self.resolve(moduleName, basePath);
             }
-            self.loadScript(moduleName, function onSuccess(rawText) {
+            var dep = moduleName;
+            if (!self.hasFileExtension(moduleName)) {
+                dep = dep + ".js";
+            }
+            self.loadScript(dep, function onSuccess(rawText) {
+                // not sure if this is the best thing to do but it works for the moment
+                moduleName = moduleName.replace(/\.js$/, "");
+
                 self.userModuleCache[moduleName] = {
                     rawText: rawText
                 };
@@ -523,7 +519,7 @@
 
                 self.loadScript(moduleName + "/package.json", function onSuccess(rawJson) {
                     var packageJson = JSON.parse(rawJson);
-                    var mainScript = self.resolve(packageJson.main, moduleName);
+                    var mainScript = self.resolve(packageJson.main, moduleName + "/"); // need to add / as resolve expects trailing / on basePaths
 
                     self.loadScript(mainScript, function onSuccess(rawText) {
                         self.userModuleCache[moduleName] = {
@@ -563,36 +559,20 @@
         var depModules = self.getDependencies(rawCode);
         if (depModules) {
 
-            // iterate through all the deps and load them
-            var loadDeps = function loadDeps(deps, index) {
-                if (index < deps.length) {
-                    var dep = deps[index];
-                    if (self.alreadyLoaded(dep)) {
-                        loadDeps(deps, index + 1);
-                    } else {
-                        var depBasePath = basePath;
-                        if (self.isPathRelative(dep)) {
-                            depBasePath = self.resolve("./" + self.getBasePath(dep), basePath);
-                        }
+            var count = depModules.length;
 
-                        // Load the dependency and when finished load the next one. // this could be done in parallel ??
-                        self.loadScript(self.resolve(dep, basePath) + '.js', function onLoaded(rawText, moduleName) {
-                            self.userModuleCache["/" + moduleName] = {
-                                rawText: rawText
-                            };
-
-                            // load next dep
-                            loadDeps(deps, index + 1);
-                        });
-                    }
-                } else {
-                    //all deps are loaded so bail
+            var dependencyLoaded = function dependencyLoaded() {
+                count -= 1;
+                if (count === 0) {
+                    // Finished loading deps
                     onComplete();
                 }
             };
 
-            // Start loading deps
-            loadDeps(depModules, 0);
+            depModules.forEach(function (dependency) {
+                self.loadDependency(dependency, basePath, dependencyLoaded);
+            });
+
         } else {
             onComplete();
         }
@@ -607,40 +587,21 @@
 
         },
         function () {
-
             if (onFail) {
                 onFail();
             }
-            // if (communjsConfig.includeNodeModulesInSearch) {
-            //     fileName = fileName.replace(/\.js$/, "");
-            //     self.getRawCode("node_modules/" + fileName + "/package.json", function onSuccess(rawText) {
-            //         var pkgJson = JSON.parse(rawText);
-
-            //         // get the main file path
-            //         var mainScript = pkgJson.main;
-            //         var path = "node_modules/" + fileName + "/" + mainScript;
-            //         self.getRawCode(path, function onSuccess(rawText) {
-            //             self.prefetchDeps(rawText, self.getBasePath(path), function () {
-            //                 onComplete(rawText, "node_modules/" + fileName);
-            //             });
-
-            //         }, function onFail() {
-            //             console.log("could not get node module at path: " + path);
-            //         });
-            //     }, function onFailure() {
-            //         console.log("could not load: " + fileName);
-            //         onComplete();
-            //     });
-            // }
-
         });
     };
 
 
     //----------------------------STARTUP--------------------------------------
 
-    self.loadAndExec = function loadAndExec(scriptName, onComplete) {
-        var basePath = "/";
+    self.loadAndExec = function loadAndExec(scriptName, scriptPagePath, onComplete) {
+        if (scriptName[0] !== '/') {
+            // it is a relative path (in html)
+            scriptName = self.resolve(scriptName, scriptPagePath);
+        }
+
         self.loadScript(scriptName, function (rawCode) {
             if (rawCode) {
                 self.execWith(self.context, rawCode, scriptName, {});
@@ -653,16 +614,17 @@
     };
 
     self.start = function start(scriptNode) {
+        var scriptPagePath = self.getBasePath(window.location.pathname);
         var mainScriptName = scriptNode.getAttribute('data-main');
         var configScriptName = scriptNode.getAttribute('data-config');
 
         if (configScriptName) {
 
-            self.loadAndExec(configScriptName, function onComplete() {
-                self.loadAndExec(mainScriptName);
+            self.loadAndExec(configScriptName, scriptPagePath, function onComplete() {
+                self.loadAndExec(mainScriptName, scriptPagePath);
             });
         } else {
-            self.loadAndExec(mainScriptName);
+            self.loadAndExec(mainScriptName, scriptPagePath);
         }
     };
 
