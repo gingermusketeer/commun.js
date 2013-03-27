@@ -547,15 +547,61 @@
                     });
                 });
             } else if (communjsConfig.includeNodeModulesInSearch) {
+                var dirs = self.nodeModulePaths(basePath);
+                var index = -1;
 
-                self.loadScript("/node_modules/" + moduleName + ".js", function (rawText) {
-                    self.userModuleCache["/node_modules/" + moduleName] = {
-                        rawText: rawText
-                    };
+                var onDepFound = function () {
                     onComplete();
-                }, function () {
-                    onComplete();
-                });
+                };
+
+                var onDepNotFound = function () {
+                    index += 1;
+
+                    if (index >= dirs.length) {
+                        onComplete(); // it was not found
+                    } else {
+                        load(dirs[index]);
+                    }
+                };
+
+                var load = function load(dir) {
+                    self.loadScript(dir + moduleName + ".js", function onSuccess(rawText) {
+                        self.userModuleCache["/node_modules/" + moduleName] = {
+                            rawText: rawText
+                        };
+                        onDepFound();
+                    }, function onFail() {
+                        self.loadScript(dir + moduleName + "/index.js", function onSuccess(rawText) {
+                            self.userModuleCache["/node_modules/" + moduleName] = {
+                                mainScript: {
+                                    name: dir + moduleName + "/index.js",
+                                    rawText: rawText
+                                }
+                            };
+                            onDepFound();
+                        }, function onFail() {
+                            self.loadScript(dir + moduleName + "/package.json", function onSuccess(rawJson) {
+                                var pkg = JSON.parse(rawJson);
+                                var mainScript = self.resolve(pkg.main, dir + moduleName + "/");
+                                self.loadScript(mainScript, function onSuccess(rawText) {
+                                    self.userModuleCache[dir + moduleName] = {
+                                        packageJson: rawJson,
+                                        mainScript: {
+                                            name: mainScript,
+                                            rawText: rawText
+                                        }
+                                    };
+                                    onDepFound();
+                                });
+
+                            }, function onFail() {
+                                onDepNotFound();
+                            });
+                        });
+                    });
+
+                };
+                onDepNotFound();
 
             } else {
                 // need to call onComplete even if it was not found;

@@ -544,7 +544,98 @@ describe("communjs", function baseSuite() {
                     });
                 });
 
-                loadDependency("someModule", null, onComplete);
+                loadDependency("someModule", "", onComplete);
+
+                expect(onComplete).toHaveBeenCalled();
+                expect(internals.loadScript).toHaveBeenCalled();
+            });
+
+
+            it('loads folder module at root node_modules without package.json using index.js', function () {
+                communjs.includeNodeModulesInSearch = true;
+                spyOn(internals, 'loadScript').andCallFake(function (moduleName, onDone, onFail) {
+                    if (moduleName === "/node_modules/someModule/index.js") {
+                        onDone("some node module");
+                    } else if (moduleName === "/node_modules/someModule.js") {
+                        onFail();
+                    } else {
+                        throw new Error("loadScript called with unexpected module name: " + moduleName);
+                    }
+                });
+
+                var onComplete = jasmine.createSpy("onComplete").andCallFake(function () {
+                    expect(internals.userModuleCache["/node_modules/someModule"]).toEqual({
+                        mainScript: {
+                            name: "/node_modules/someModule/index.js",
+                            rawText: "some node module"
+                        }
+                    });
+                });
+
+                loadDependency("someModule", "", onComplete);
+
+                expect(onComplete).toHaveBeenCalled();
+                expect(internals.loadScript).toHaveBeenCalled();
+            });
+
+            it("loads node module with package.json", function () {
+                communjs.includeNodeModulesInSearch = true;
+                spyOn(internals, 'loadScript').andCallFake(function (moduleName, onDone, onFail) {
+                    if (moduleName === "/node_modules/someModule/package.json") {
+                        onDone('{ "main": "./src/someMainScript.js" }');
+                    } else if (moduleName === "/node_modules/someModule/src/someMainScript.js") {
+                        onDone("script referenced from package.json");
+                    } else if (moduleName === "/node_modules/someModule.js" || moduleName === "/node_modules/someModule/index.js") {
+                        onFail();
+                    } else {
+                        throw new Error("loadScript called with unexpected module name: " + moduleName);
+                    }
+                });
+
+                var onComplete = jasmine.createSpy("onComplete").andCallFake(function () {
+                    expect(internals.userModuleCache["/node_modules/someModule"]).toEqual({
+                        packageJson: '{ "main": "./src/someMainScript.js" }',
+                        mainScript: {
+                            name: "/node_modules/someModule/src/someMainScript.js",
+                            rawText: "script referenced from package.json"
+                        }
+                    });
+                });
+
+                loadDependency("someModule", "", onComplete);
+
+                expect(onComplete).toHaveBeenCalled();
+                expect(internals.loadScript).toHaveBeenCalled();
+            });
+
+            function stubLoadScript(successCache, failPaths) {
+                spyOn(internals, 'loadScript').andCallFake(function (moduleName, onSuccess, onFail) {
+                    if (successCache.hasOwnProperty(moduleName)) {
+                        onSuccess(successCache[moduleName]);
+                    } else if (failPaths.indexOf(moduleName) > -1) {
+                        onFail();
+                    } else {
+                        throw new Error("loadScript called with unexpected module name: " + moduleName);
+                    }
+                });
+
+            }
+
+            it("searches path tree for node_module", function () {
+                stubLoadScript({
+                    "/a/node_modules/someModule.js": "a node module not at the base path"
+                }, [
+                    "/a/b/node_modules/someModule.js", "/a/b/node_modules/someModule/package.json", "/a/b/node_modules/someModule/index.js",
+                    "/a/b/c/node_modules/someModule.js", "/a/b/c/node_modules/someModule/package.json", "/a/b/c/node_modules/someModule/index.js"
+                ]);
+
+                var onComplete = jasmine.createSpy("onComplete").andCallFake(function () {
+                    expect(internals.userModuleCache["/node_modules/someModule"]).toEqual({
+                        rawText: "a node module not at the base path"
+                    });
+                });
+
+                loadDependency("someModule", "/a/b/c", onComplete);
 
                 expect(onComplete).toHaveBeenCalled();
                 expect(internals.loadScript).toHaveBeenCalled();
