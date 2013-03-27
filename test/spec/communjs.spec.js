@@ -497,6 +497,59 @@ describe("communjs", function baseSuite() {
             expect(onComplete).toHaveBeenCalled();
             expect(internals.loadScript).toHaveBeenCalled();
         });
+
+        describe('node_modules', function () {
+
+            communjs.includeNodeModulesInSearch = true;
+            beforeEach(function () {
+                internals.userModuleCache = {};
+            });
+
+            it("allows prefetching for node_modules to be configured", function () {
+
+                communjs.includeNodeModulesInSearch = false;
+
+                spyOn(internals, 'loadScript').andCallFake(function (name, onComplete) {
+                    onComplete();
+                });
+                var onComplete = jasmine.createSpy("onComplete");
+
+                loadDependency("aNodeModule", "", onComplete);
+
+                expect(onComplete).toHaveBeenCalled();
+                expect(internals.loadScript).not.toHaveBeenCalled();
+
+                communjs.includeNodeModulesInSearch = true;
+                onComplete.reset();
+
+                loadDependency("aNodeModule", "", onComplete);
+
+                expect(onComplete).toHaveBeenCalled();
+                expect(internals.loadScript).toHaveBeenCalled();
+            });
+
+            it('loads from file in node_modules at the base path', function () {
+                communjs.includeNodeModulesInSearch = true;
+                spyOn(internals, 'loadScript').andCallFake(function (moduleName, onDone, onFail) {
+                    if (moduleName === "/node_modules/someModule.js") {
+                        onDone("some node module");
+                    } else {
+                        throw new Error("loadScript called with unexpected module name: " + moduleName);
+                    }
+                });
+
+                var onComplete = jasmine.createSpy("onComplete").andCallFake(function () {
+                    expect(internals.userModuleCache["/node_modules/someModule"]).toEqual({
+                        rawText: "some node module"
+                    });
+                });
+
+                loadDependency("someModule", null, onComplete);
+
+                expect(onComplete).toHaveBeenCalled();
+                expect(internals.loadScript).toHaveBeenCalled();
+            });
+        });
     });
 
     describe("resolve", function () {

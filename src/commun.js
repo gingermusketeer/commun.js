@@ -498,52 +498,72 @@
             if (self.isPathRelative(moduleName)) {
                 moduleName = self.resolve(moduleName, basePath);
             }
-            var dep = moduleName;
-            if (!self.hasFileExtension(moduleName)) {
-                dep = dep + ".js";
-            }
-            self.loadScript(dep, function onSuccess(rawText) {
-                // not sure if this is the best thing to do but it works for the moment
-                moduleName = moduleName.replace(/\.js$/, "");
 
-                self.userModuleCache[moduleName] = {
-                    rawText: rawText
-                };
-                onComplete();
-            }, function onFail() {
-                // cannot find exact file could be a folder module
+            if (self.isPathAbsolute(moduleName)) {
+                var dep = moduleName;
+                if (!self.hasFileExtension(moduleName)) {
+                    dep = dep + ".js";
+                }
+                self.loadScript(dep, function onSuccess(rawText) {
+                    // not sure if this is the best thing to do but it works for the moment
+                    moduleName = moduleName.replace(/\.js$/, "");
 
-                self.loadScript(moduleName + "/package.json", function onSuccess(rawJson) {
-                    var packageJson = JSON.parse(rawJson);
-                    var mainScript = self.resolve(packageJson.main, moduleName + "/"); // need to add / as resolve expects trailing / on basePaths
-
-                    self.loadScript(mainScript, function onSuccess(rawText) {
-                        self.userModuleCache[moduleName] = {
-                            packageJson: rawJson,
-                            mainScript: {
-                                name: mainScript,
-                                rawText: rawText
-                            }
-                        };
-                        onComplete();
-
-                    }, onComplete); // cannot find the file referenced by package.json
+                    self.userModuleCache[moduleName] = {
+                        rawText: rawText
+                    };
+                    onComplete();
                 }, function onFail() {
-                    // no package.json perhaps there is a index.js
+                    // cannot find exact file could be a folder module
 
-                    self.loadScript(moduleName + "/index.js", function onSuccess(rawText) {
-                        self.userModuleCache[moduleName] = {
-                            mainScript: {
-                                name: moduleName + "/index.js",
-                                rawText: "index.js for folder module"
-                            }
-                        };
+                    self.loadScript(moduleName + "/package.json", function onSuccess(rawJson) {
+                        var packageJson = JSON.parse(rawJson);
+                        var mainScript = self.resolve(packageJson.main, moduleName + "/"); // need to add / as resolve expects trailing / on basePaths
 
-                        onComplete();
+                        self.loadScript(mainScript, function onSuccess(rawText) {
+                            self.userModuleCache[moduleName] = {
+                                packageJson: rawJson,
+                                mainScript: {
+                                    name: mainScript,
+                                    rawText: rawText
+                                }
+                            };
+                            onComplete();
 
-                    }, onComplete); // cannot find the module so loading is done
+                        }, onComplete); // cannot find the file referenced by package.json
+                    }, function onFail() {
+                        // no package.json perhaps there is a index.js
+
+                        self.loadScript(moduleName + "/index.js", function onSuccess(rawText) {
+                            self.userModuleCache[moduleName] = {
+                                mainScript: {
+                                    name: moduleName + "/index.js",
+                                    rawText: "index.js for folder module"
+                                }
+                            };
+
+                            onComplete();
+
+                        }, onComplete); // cannot find the module so loading is done
+                    });
                 });
-            });
+            } else if (communjsConfig.includeNodeModulesInSearch) {
+
+                self.loadScript("/node_modules/" + moduleName + ".js", function (rawText) {
+                    self.userModuleCache["/node_modules/" + moduleName] = {
+                        rawText: rawText
+                    };
+                    onComplete();
+                }, function () {
+                    onComplete();
+                });
+
+            } else {
+                // need to call onComplete even if it was not found;
+                console.log("Could not prefetch: " + moduleName);
+                onComplete();
+
+            }
+
         }
     };
 
