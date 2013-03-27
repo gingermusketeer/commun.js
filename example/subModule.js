@@ -4,6 +4,7 @@
 var document = require('window').document;
 var console = require('console');
 var p = document.createElement('p');
+require('aNodeModule');
 
 p.innerHTML = "hello from submodule";
 document.body.appendChild(p);
