@@ -169,6 +169,7 @@ describe("communjs", function baseSuite() {
             var someModule = require('someModule');
 
             expect(someModule.prop).toBe(5);
+            delete internals.coreModuleCache.someModule;
         });
 
         it("returns absolute modules from userModuleCache", function () {
