@@ -4,6 +4,10 @@ A browser based commonjs module 1.0 compliant module loader.
 
 ## why communjs
 - commonjs modules 1.0 compliance (same as node)
+- node_module support
+    - need a module simply ```npm install``` and require it in your code
+- folder modules
+    - either index.js or main script in package.json are used
 - cross browser
     - chrome  -> Yes
     - firefox -> Yes
@@ -14,7 +18,7 @@ A browser based commonjs module 1.0 compliant module loader.
 - sandboxing modules from browser environment
     - ```var document = require('document');```
 - simple syntax
-    - A file is treated as a module and the only things exposed from the file is done explicitly through it exports
+    - A file is treated as a module and the only things exposed from the file is done explicitly through its exports
     - ```exports.awesomeFunctionality = ...```
 
 ## getting started
@@ -33,13 +37,13 @@ where main.js is something like
 
 ## trying it out
 
+    git clone git@github.com:gingermusketeer/commun.js.git
+    cd commun.js
     npm install
-
     node serve
-
     visit localhost:8080
 
-checkout the source code in the example directory
+Have a look at the source code in the example directory.
 
 
 ## Contributing
