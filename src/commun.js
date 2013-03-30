@@ -613,29 +613,63 @@
         }
     };
 
+    self.processDeps = function processDeps(depModules, basePath, onComplete)
+    /*{
+        "description": "Given a list of all dependencies they are loaded in parallel.",
+        "args": [
+            {
+                "description": "The dependencies to be loaded.",
+                "exampleVal": "['./someFile', 'console', 'aNodeModule']"
+            },
+            {
+                "description": "The base path for the dependencies to be loaded from. Used for relative requires etc."
+            },
+            {
+                "description": "The callback to use when all attempts to load the dependencies have finished."
+            }
+        ]
+    }*/
+    {
+        // Number of dependencies to load
+        var count = depModules.length;
+
+        var dependencyLoaded = function dependencyLoaded() {
+            // We have loaded one dependency
+            count -= 1;
+            if (count === 0) {
+                // Finished loading deps
+                onComplete();
+            }
+        };
+
+        // Actually load the dependency
+        depModules.forEach(function (dependency) {
+            self.loadDependency(dependency, basePath, dependencyLoaded);
+        });
+    };
+
     self.prefetchDeps = function prefetchDeps(rawCode, basePath, onComplete)
     /*{
         "description": "Given some source code all the dependencies are prefetched but not executed so that they are available to require calls."
+        "args": [
+            {
+                "description": "The source code for which dependencies are to be fetched."
+            },
+            {
+                "description": "The folder from which the code was retrieved. This is used to resolve relative dependencies."
+            },
+            {
+                "description": "The callback to be used when all the dependencies have been fetched."
+            }
+        ]
     }*/
     {
         var depModules = self.getDependencies(rawCode);
         if (depModules) {
-
-            var count = depModules.length;
-
-            var dependencyLoaded = function dependencyLoaded() {
-                count -= 1;
-                if (count === 0) {
-                    // Finished loading deps
-                    onComplete();
-                }
-            };
-
-            depModules.forEach(function (dependency) {
-                self.loadDependency(dependency, basePath, dependencyLoaded);
-            });
-
+            self.processDeps(depModules, basePath, onComplete);
         } else {
+
+            // No dependencies to process
             onComplete();
         }
     };
