@@ -491,125 +491,114 @@
         return depModules;
     };
 
+
+    self.loadFolder = function loadFolder(folderName, onLoadSuccess, onLoadFail)
+    /*{
+        "description": "Tries to load a folder. First /index.js is tried then main in /package.json is tried."
+    }*/
+    {
+
+        var mainScriptName = folderName + "/index.js";
+        self.loadScript(mainScriptName, function onSuccess(rawText) {
+            self.userModuleCache[folderName] = {
+                mainScript: {
+                    name: mainScriptName,
+                    rawText: rawText
+                }
+            };
+            onLoadSuccess();
+        }, function onFail() {
+            self.loadScript(folderName + "/package.json", function onSuccess(rawJson) {
+                var pkg = JSON.parse(rawJson);
+                var mainScript = self.resolve(pkg.main, folderName + "/");
+                self.loadScript(mainScript, function onSuccess(rawText) {
+                    self.userModuleCache[folderName] = {
+                        packageJson: rawJson,
+                        mainScript: {
+                            name: mainScript,
+                            rawText: rawText
+                        }
+                    };
+                    onLoadSuccess();
+                }, onLoadFail);
+
+            }, onLoadFail);
+        });
+    };
+
+    self.loadFile = function loadFile(fileName, onLoadSuccess, onLoadFail)
+    /*{
+        "description": "Tries to load a file. If successful the file is added to the module cache."
+    }*/
+    {
+        self.loadScript(fileName, function onSuccess(rawText) {
+                // not sure if this is the best thing to do but it works for the moment
+                fileName = fileName.replace(/\.js$/, "");
+
+                self.userModuleCache[fileName] = {
+                    rawText: rawText
+                };
+                onLoadSuccess();
+            }, onLoadFail);
+
+    };
+
+    self.tryLoadingAsFileThenFolder = function tryLoadingAsFileThenFolder(modulePath, onSuccess, onFailure)
+    /*{
+        "description": "Tries to load the file first as a file then as a directory."
+    }*/
+    {
+        var file = modulePath;
+        if (!self.hasFileExtension(file)) {
+            file = file + ".js";
+        }
+        self.loadFile(file, onSuccess, function onFail() {
+            // cannot find exact file could be a folder module
+            self.loadFolder(modulePath, onSuccess, onFailure);
+        });
+    };
+
+    self.loadNodeModule = function loadNodeModule(moduleName, basePath, onComplete) {
+
+        var dirs = self.nodeModulePaths(basePath);
+        var index = -1;
+
+        var onDepNotFound = function onDepNotFound() {
+            index += 1;
+
+            if (index >= dirs.length) {
+                onComplete(); // it was not found
+            } else {
+                self.tryLoadingAsFileThenFolder(dirs[index] + moduleName, onComplete, onDepNotFound);
+            }
+        };
+
+        var start = onDepNotFound;
+        start();
+    };
+
     self.loadDependency = function loadDependency(moduleName, basePath, onComplete) {
         if (self.alreadyLoaded(moduleName)) {
+            // Do nothing
             onComplete();
         } else {
             if (self.isPathRelative(moduleName)) {
+                // It is a relative path so convert it to absolute
                 moduleName = self.resolve(moduleName, basePath);
             }
 
             if (self.isPathAbsolute(moduleName)) {
-                var dep = moduleName;
-                if (!self.hasFileExtension(moduleName)) {
-                    dep = dep + ".js";
-                }
-                self.loadScript(dep, function onSuccess(rawText) {
-                    // not sure if this is the best thing to do but it works for the moment
-                    moduleName = moduleName.replace(/\.js$/, "");
 
-                    self.userModuleCache[moduleName] = {
-                        rawText: rawText
-                    };
-                    onComplete();
-                }, function onFail() {
-                    // cannot find exact file could be a folder module
+                self.tryLoadingAsFileThenFolder(moduleName, onComplete, onComplete);
 
-                    self.loadScript(moduleName + "/package.json", function onSuccess(rawJson) {
-                        var packageJson = JSON.parse(rawJson);
-                        var mainScript = self.resolve(packageJson.main, moduleName + "/"); // need to add / as resolve expects trailing / on basePaths
-
-                        self.loadScript(mainScript, function onSuccess(rawText) {
-                            self.userModuleCache[moduleName] = {
-                                packageJson: rawJson,
-                                mainScript: {
-                                    name: mainScript,
-                                    rawText: rawText
-                                }
-                            };
-                            onComplete();
-
-                        }, onComplete); // cannot find the file referenced by package.json
-                    }, function onFail() {
-                        // no package.json perhaps there is a index.js
-
-                        self.loadScript(moduleName + "/index.js", function onSuccess(rawText) {
-                            self.userModuleCache[moduleName] = {
-                                mainScript: {
-                                    name: moduleName + "/index.js",
-                                    rawText: "index.js for folder module"
-                                }
-                            };
-
-                            onComplete();
-
-                        }, onComplete); // cannot find the module so loading is done
-                    });
-                });
             } else if (communjsConfig.includeNodeModulesInSearch) {
-                var dirs = self.nodeModulePaths(basePath);
-                var index = -1;
-
-                var onDepFound = function () {
-                    onComplete();
-                };
-
-                var onDepNotFound = function () {
-                    index += 1;
-
-                    if (index >= dirs.length) {
-                        onComplete(); // it was not found
-                    } else {
-                        load(dirs[index]);
-                    }
-                };
-
-                var load = function load(dir) {
-                    self.loadScript(dir + moduleName + ".js", function onSuccess(rawText) {
-                        self.userModuleCache["/node_modules/" + moduleName] = {
-                            rawText: rawText
-                        };
-                        onDepFound();
-                    }, function onFail() {
-                        self.loadScript(dir + moduleName + "/index.js", function onSuccess(rawText) {
-                            self.userModuleCache["/node_modules/" + moduleName] = {
-                                mainScript: {
-                                    name: dir + moduleName + "/index.js",
-                                    rawText: rawText
-                                }
-                            };
-                            onDepFound();
-                        }, function onFail() {
-                            self.loadScript(dir + moduleName + "/package.json", function onSuccess(rawJson) {
-                                var pkg = JSON.parse(rawJson);
-                                var mainScript = self.resolve(pkg.main, dir + moduleName + "/");
-                                self.loadScript(mainScript, function onSuccess(rawText) {
-                                    self.userModuleCache[dir + moduleName] = {
-                                        packageJson: rawJson,
-                                        mainScript: {
-                                            name: mainScript,
-                                            rawText: rawText
-                                        }
-                                    };
-                                    onDepFound();
-                                });
-
-                            }, function onFail() {
-                                onDepNotFound();
-                            });
-                        });
-                    });
-
-                };
-                onDepNotFound();
-
+                // It is a node module and node module loading is enabled
+                self.loadNodeModule(moduleName, basePath, onComplete);
             } else {
-                // need to call onComplete even if it was not found;
                 console.log("Could not prefetch: " + moduleName);
+                // need to call onComplete even if it was not found;
                 onComplete();
-
             }
-
         }
     };
 
