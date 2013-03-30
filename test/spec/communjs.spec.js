@@ -425,7 +425,7 @@ describe("communjs", function baseSuite() {
         it("loads folder modules with package.json", function () {
 
             spyOn(internals, 'loadScript').andCallFake(function (moduleName, onDone, onFail) {
-                if (moduleName === "/someFolder.js") {
+                if (moduleName === "/someFolder.js" || moduleName === "/someFolder/index.js") {
                     onFail();
                 } else  if (moduleName === "/someFolder/package.json") {
                     onDone('{ "main": "./lib/main.js" }');
@@ -630,7 +630,7 @@ describe("communjs", function baseSuite() {
                 ]);
 
                 var onComplete = jasmine.createSpy("onComplete").andCallFake(function () {
-                    expect(internals.userModuleCache["/node_modules/someModule"]).toEqual({
+                    expect(internals.userModuleCache["/a/node_modules/someModule"]).toEqual({
                         rawText: "a node module not at the base path"
                     });
                 });
