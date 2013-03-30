@@ -469,12 +469,7 @@
         screen: undefined,
         window: undefined,
         alert: undefined,
-        prompt: undefined,
-
-        /* hide common js libraries */
-        $: undefined,
-        jQuery: undefined,
-        _: undefined
+        prompt: undefined
     };
 
     //----------------------------CODE PREFETCH--------------------------------
