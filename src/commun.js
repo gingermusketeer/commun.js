@@ -640,19 +640,39 @@
         }
     };
 
-    self.loadScript = function loadScript(fileName, onComplete, onFail) {
+    self.loadScript = function loadScript(fileName, onSuccess, onFail)
+    /*{
+        "description": "Fetches a remote file.",
+        "args": [
+            {
+                "description": "The remote file to be retrieved.",
+                "exampleVal": "/a/someFile.js"
+            },
+            {
+                "description": "Call back to use when the remote file is successfully retrieved.",
+                "args": {
+                    "description": "The contents of the file."
+                }
+            },
+            {
+                "description": "Callback to use when the remote file could not be retrieved.",
+                "optional": true
+            }
+        ]
+    }*/
+    {
         console.log("loading script " + fileName);
-        self.getRawCode(fileName, function (rawCode) {
-            self.prefetchDeps(rawCode, self.getBasePath(fileName), function () {
-                onComplete(rawCode, fileName.replace(/\.js$/, ""));
+        // Get the file
+        self.getRawCode(fileName, function retrievedFile(rawCode) {
+
+            // Got the file. Get the dependant scripts
+            self.prefetchDeps(rawCode, self.getBasePath(fileName), function onDepsFetched() {
+
+                // Dependants retrieved
+                onSuccess(rawCode);
             });
 
-        },
-        function () {
-            if (onFail) {
-                onFail();
-            }
-        });
+        }, onFail);
     };
 
 
