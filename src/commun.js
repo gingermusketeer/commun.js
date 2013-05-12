@@ -416,8 +416,38 @@
         return self.coreModuleCache.hasOwnProperty(moduleName) || self.userModuleCache.hasOwnProperty(moduleName) || self.userModuleCache.hasOwnProperty("node_modules/" + moduleName);
     };
 
+    self.blockGlobalAccess = function blockGlobalAccess(globalName)
+    /*{
+        "description": "Throws an exception when called. The message is tailored to the global that caused it."
+    }*/
+    {
+        throw new function GlobalAccessError() {
+            this.message = "Cannot access: " + globalName + " it is blocked by communjs. Use require('"+globalName+"') instead."
+        }
+    };
+
+    self.setupContext = function setupContext(context)
+    /*{
+        "description": "Configures a context object such that all the keys are reconfigured as getters which throw exceptions when called.",
+        "returns": "The context object"
+    }*/
+    {
+        for(var key in context) {
+            if(context.hasOwnProperty(key)) {
+                // Change property to be a getter that throws an exception.
+                Object.defineProperty(context, key, {
+                    get: (function(key){
+                        return function () {
+                            self.blockGlobalAccess(key);
+                        }
+                    })(key)
+                });
+            }
+        }
+        return context;
+    };
     // module globals
-    self.context = {
+    self.context = self.setupContext({
         /* hide all the common browser APIs */
         top: undefined,
         location: undefined,
@@ -470,7 +500,7 @@
         window: undefined,
         alert: undefined,
         prompt: undefined
-    };
+    });
 
     //----------------------------CODE PREFETCH--------------------------------
 

@@ -32,6 +32,21 @@ describe("communjs", function baseSuite() {
         expect(a).toEqual({ a: 1 });
     });
 
+    it("throws an error when a global is accessed", function () {
+        require.cache = {
+            "a": {
+                rawText: "var w = window;"
+            }
+        };
+
+        function testException() {
+            require("a");
+        }
+
+        expect(testException).toThrow();
+
+    });
+
     describe("configuration", function () {
 
 
@@ -147,7 +162,7 @@ describe("communjs", function baseSuite() {
         it('is require-able', function () {
             var communjsInternals = require('_communjs/internal');
 
-            expect(communjsInternals).toBeTruthy();
+            expect(typeof communjsInternals).toBe("object")
         });
     });
 
