@@ -466,7 +466,6 @@
         DocumentFragment: undefined,
         DOMImplementation: undefined,
         performance: undefined,
-        console: undefined,
         parent: undefined,
         opener: undefined,
         frames: undefined,
