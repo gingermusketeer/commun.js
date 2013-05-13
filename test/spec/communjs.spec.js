@@ -1,7 +1,7 @@
 /*{
    "description": "Specs for communjs."
 }*/
-/*globals require, describe, it, expect, beforeEach, afterEach spyOn, jasmine*/
+/*globals window: true, require, describe, it, expect, beforeEach, afterEach spyOn, jasmine*/
 
 'use strict';
 
@@ -33,17 +33,17 @@ describe("communjs", function baseSuite() {
     });
 
     it("throws an error when a global is accessed", function () {
-        require.cache = {
-            "a": {
-                rawText: "var w = window;"
-            }
-        };
 
-        function testException() {
-            require("a");
+        function getGlobalException() {
+            var v = window;
         }
 
-        expect(testException).toThrow();
+        expect(getGlobalException).toThrow();
+
+        function setGlobalException() {
+            window = 3;
+        }
+        expect(setGlobalException).toThrow();
 
     });
 
@@ -162,7 +162,7 @@ describe("communjs", function baseSuite() {
         it('is require-able', function () {
             var communjsInternals = require('_communjs/internal');
 
-            expect(typeof communjsInternals).toBe("object")
+            expect(typeof communjsInternals).toBe("object");
         });
     });
 
@@ -401,7 +401,6 @@ describe("communjs", function baseSuite() {
 
         });
 
-        var console = require('console');
 
         it("loads absolute modules", function () {
             spyOn(internals, 'loadScript').andCallFake(function (moduleName, onDone) {

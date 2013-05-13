@@ -3,7 +3,6 @@ require('../../<%= script %>');
 <% }); %>
 
 var window = require('window');
-var console = require('console');
 var document = require('document');
 var jasmineEnv = jasmine.getEnv();
 

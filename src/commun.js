@@ -413,14 +413,38 @@
         return self.coreModuleCache.hasOwnProperty(moduleName) || self.userModuleCache.hasOwnProperty(moduleName) || self.userModuleCache.hasOwnProperty("node_modules/" + moduleName);
     };
 
+    self.GlobalAccessError = function GlobalAccessError(globalName)
+    /*{
+        "description": "Constructor which sets the error message to be related to the name of the global passed in. This should relate to the global which caused the error."
+    }*/
+    {
+        this.message = "Cannot access: " + globalName + " it is blocked by communjs. Use require('" + globalName + "') instead.";
+    };
+
+    // Get all the features that Error provides
+    self.GlobalAccessError.prototype = new Error();
+
     self.blockGlobalAccess = function blockGlobalAccess(globalName)
     /*{
         "description": "Throws an exception when called. The message is tailored to the global that caused it."
     }*/
     {
-        throw new function GlobalAccessError() {
-            this.message = "Cannot access: " + globalName + " it is blocked by communjs. Use require('"+globalName+"') instead."
-        }
+        throw new self.GlobalAccessError(globalName);
+    };
+
+    self.configureGlobal = function configureGlobal(context, globalName)
+    /*{
+        "description": "Redefines the property specified on the context passed in so that the getters and setters throw errors."
+    }*/
+    {
+        var handler = function () {
+            self.blockGlobalAccess(globalName);
+        };
+
+        Object.defineProperty(context, globalName, {
+            get: handler,
+            set: handler
+        });
     };
 
     self.setupContext = function setupContext(context)
@@ -429,20 +453,16 @@
         "returns": "The context object"
     }*/
     {
-        for(var key in context) {
-            if(context.hasOwnProperty(key)) {
+        for (var globalName in context) {
+            if (context.hasOwnProperty(globalName)) {
                 // Change property to be a getter that throws an exception.
-                Object.defineProperty(context, key, {
-                    get: (function(key){
-                        return function () {
-                            self.blockGlobalAccess(key);
-                        }
-                    })(key)
-                });
+                self.configureGlobal(context, globalName);
+
             }
         }
         return context;
     };
+
     // module globals
     self.context = self.setupContext({
         /* hide all the common browser APIs */
