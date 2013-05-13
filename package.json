@@ -1,6 +1,6 @@
 {
   "name": "commun.js",
-  "version": "0.4.1",
+  "version": "0.5.0",
   "description": "Browser based commonjs compliant module loader",
   "main": "serve.js",
   "scripts": {
