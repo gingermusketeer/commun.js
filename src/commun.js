@@ -187,9 +187,6 @@
         history: {
             exports: history
         },
-        console: {
-            exports: console
-        },
 
         // communjs modules
         "_communjs/parser": {
