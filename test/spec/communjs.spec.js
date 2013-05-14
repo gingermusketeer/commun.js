@@ -47,6 +47,10 @@ describe("communjs", function baseSuite() {
 
     });
 
+    it('allows a module to be explicitly prefetched', function () {
+        expect(require.prefetch).toBeDefined();
+    });
+
     describe("configuration", function () {
 
 

@@ -41,7 +41,7 @@
             is also defined here so that the current path can be captured. This is
             used for resolving relative file paths etc.
         */
-        var evalCode = "with(this){\n var require = function (moduleName){\n return _ß_arg.require(moduleName, _ß_arg.requireOrigin, require.cache)\n };\n return (function(){\n try{\neval(_ß_arg.source);\n} catch(e){\nthrow e;\n}\n return exports;\n }.call({}))\n }//@ sourceURL=_communjs/sandBox.js";
+        var evalCode = "with(this){\n var require = function (moduleName){\n return _ß_arg.require(moduleName, _ß_arg.requireOrigin, require.cache)\n };\n require.prefetch = _ß_arg.require.prefetch;\n return (function(){\n try{\neval(_ß_arg.source);\n} catch(e){\nthrow e;\n}\n return exports;\n }.call({}))\n }//@ sourceURL=_communjs/sandBox.js";
 
         // eval via function so that the current scope is not included.
         var func = new Function("_ß_arg", "exports", "module", evalCode);
@@ -739,7 +739,8 @@
         }, onFail);
     };
 
-
+    // Provide a hook for prefetching to be called explicitly.
+    self.require.prefetch = self.loadScript;
     //----------------------------STARTUP--------------------------------------
 
     self.loadAndExec = function loadAndExec(scriptName, scriptPagePath, onComplete) {
