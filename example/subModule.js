@@ -2,7 +2,6 @@
 "use strict";
 
 var document = require('window').document;
-var console = require('console');
 var p = document.createElement('p');
 require('aNodeModule');
 

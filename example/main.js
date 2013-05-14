@@ -1,13 +1,10 @@
-/*global document:true, require: false*/
+/*global document:true, require: false, console*/
 'use strict';
 var document = require('document');
 
 var p = document.createElement('p');
 p.innerHTML = "hello from main";
 document.body.appendChild(p);
-
-
-var console = require('console');
 
 console.log("main is here");
 
