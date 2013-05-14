@@ -356,10 +356,10 @@
             if (self.isPathRelative(moduleName)) {
 
                 // convert it into an absolute path
-                var resolvedName = self.resolve(moduleName, self.getBasePath(requireOrigin));
-
-                moduleName = resolvedName.replace(/\.js$/, "");
+                moduleName = self.resolve(moduleName, self.getBasePath(requireOrigin));
             }
+
+            moduleName = moduleName.replace(/\.js$/, "");
 
             if (self.isPathAbsolute(moduleName)) {
                 module = self.userModuleCache[moduleName];

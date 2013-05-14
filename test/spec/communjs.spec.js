@@ -51,6 +51,18 @@ describe("communjs", function baseSuite() {
         expect(require.prefetch).toBeDefined();
     });
 
+    it('allows absolute modules to be required with .js suffix', function () {
+        var exports = {};
+        require.cache = {
+            "/a": {
+                exports: exports
+            }
+        };
+
+        var a = require('/a.js');
+        expect(a).toBe(exports);
+    });
+
     describe("configuration", function () {
 
 
